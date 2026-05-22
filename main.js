@@ -109,12 +109,21 @@ function navigate(section) {
 // ===== MODALS =====
 function openModal(id) {
     if (id === 'taskModal') {
-        fillTaskProjectSelect();
-        // Если открываем из проекта — автоматически выбираем проект
-        if (currentProjectId) {
-            document.getElementById('taskProject').value = currentProjectId;
-            fillAssigneeSelect(currentProjectId);
+        // Заполняем проекты только если вызвано напрямую (не из openTaskModalForProject)
+        const projectSel = document.getElementById('taskProject');
+        const alreadyHasProject = currentProjectId && projectSel.value === currentProjectId;
+
+        if (!alreadyHasProject) {
+            fillTaskProjectSelect();
+            if (currentProjectId) {
+                projectSel.value = currentProjectId;
+            }
         }
+
+        // Заполняем исполнителей по текущему проекту
+        const projectId = projectSel.value || currentProjectId;
+        fillAssigneeSelect(projectId);
+
         // Сбрасываем кнопку
         const btn = document.querySelector('#taskModal .btn-primary');
         if (btn && !btn.dataset.editing) {
@@ -150,9 +159,8 @@ function fillTaskProjectSelect(selectedId) {
         if (selectedId && p.id === selectedId) opt.selected = true;
         sel.appendChild(opt);
     });
-    // Обновляем список исполнителей при смене проекта
+    // При смене проекта обновляем исполнителей
     sel.onchange = () => fillAssigneeSelect(sel.value);
-    fillAssigneeSelect(selectedId || sel.value);
 }
 
 function fillAssigneeSelect(projectId) {
@@ -186,10 +194,11 @@ function fillAssigneeSelect(projectId) {
 
 function openTaskModalForProject(status) {
     fillTaskProjectSelect(currentProjectId);
-    if (currentProjectId) document.getElementById('taskProject').value = currentProjectId;
+    if (currentProjectId) {
+        document.getElementById('taskProject').value = currentProjectId;
+        fillAssigneeSelect(currentProjectId);
+    }
     if (status) document.getElementById('taskStatus').value = status;
-    // Заполняем исполнителей из участников проекта
-    if (currentProjectId) fillAssigneeSelect(currentProjectId);
     // Сбрасываем кнопку на "Создать"
     const btn = document.querySelector('#taskModal .btn-primary');
     if (btn) { btn.textContent = 'Создать'; btn.disabled = false; btn.onclick = null; }
