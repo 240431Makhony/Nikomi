@@ -107,6 +107,14 @@ function navigate(section) {
 }
 
 // ===== MODALS =====
+function resetTaskModalSubmitButton() {
+    const btn = document.querySelector('#taskModal .btn-primary');
+    if (!btn) return;
+    btn.textContent = 'Создать';
+    btn.disabled = false;
+    btn.onclick = saveTask;
+}
+
 function openModal(id) {
     if (id === 'taskModal') {
         // Заполняем проекты только если вызвано напрямую (не из openTaskModalForProject)
@@ -125,12 +133,7 @@ function openModal(id) {
         fillAssigneeSelect(projectId);
 
         // Сбрасываем кнопку
-        const btn = document.querySelector('#taskModal .btn-primary');
-        if (btn && !btn.dataset.editing) {
-            btn.textContent = 'Создать';
-            btn.disabled = false;
-            btn.onclick = null;
-        }
+        resetTaskModalSubmitButton();
     }
     document.getElementById(id).classList.add('open');
 }
@@ -145,7 +148,7 @@ function closeModal(id) {
         if (aiResult) aiResult.style.display = 'none';
         window._aiModalPhases = null;
     }
-    if (id === 'taskModal') { document.getElementById('taskName').value = ''; document.getElementById('taskDesc').value = ''; document.getElementById('taskStatus').value = 'todo'; document.getElementById('taskPriority').value = 'medium'; document.getElementById('taskDue').value = ''; document.getElementById('taskProject').value = ''; }
+    if (id === 'taskModal') { document.getElementById('taskName').value = ''; document.getElementById('taskDesc').value = ''; document.getElementById('taskStatus').value = 'todo'; document.getElementById('taskPriority').value = 'medium'; document.getElementById('taskDue').value = ''; document.getElementById('taskProject').value = ''; document.getElementById('taskAssignee').value = ''; resetTaskModalSubmitButton(); const titleEl = document.getElementById('taskModalTitle'); if (titleEl) titleEl.textContent = 'Новая задача'; }
     if (id === 'noteModal') { document.getElementById('noteTitle').value = ''; document.getElementById('noteContent').value = ''; }
 }
 
@@ -200,8 +203,7 @@ function openTaskModalForProject(status) {
     }
     if (status) document.getElementById('taskStatus').value = status;
     // Сбрасываем кнопку на "Создать"
-    const btn = document.querySelector('#taskModal .btn-primary');
-    if (btn) { btn.textContent = 'Создать'; btn.disabled = false; btn.onclick = null; }
+    resetTaskModalSubmitButton();
     const titleEl = document.getElementById('taskModalTitle');
     if (titleEl) titleEl.textContent = 'Новая задача';
     openModal('taskModal');
@@ -1069,9 +1071,7 @@ async function saveEditTask(taskId) {
     if (task) Object.assign(task, updates);
 
     // Сбрасываем кнопку обратно
-    btn.onclick = null;
-    btn.textContent = 'Создать';
-    btn.setAttribute('onclick', 'saveTask()');
+    resetTaskModalSubmitButton();
     const titleEl = document.getElementById('taskModalTitle');
     if (titleEl) titleEl.textContent = 'Новая задача';
 
