@@ -1,6 +1,5 @@
 // ============================================
 // NIKOMI — Supabase Client
-// Ключи хранятся в js/config.js (не в GitHub)
 // ============================================
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -12,52 +11,42 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // AUTH
 // ============================================
 
-// Регистрация
 export async function signUp(email, password, name, role) {
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-            data: { name, role }   // сохраняется в profiles через триггер
-        }
+        options: { data: { name, role } }
     });
     if (error) return { success: false, error: error.message };
     return { success: true, user: data.user };
 }
 
-// Вход по email
 export async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
     return { success: true, user: data.user, session: data.session };
 }
 
-// Вход через Google
 export async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { 
-            redirectTo: window.location.origin + '/auth-callback.html'
-        }
+        options: { redirectTo: window.location.origin + '/auth-callback.html' }
     });
     if (error) return { success: false, error: error.message };
     return { success: true };
 }
 
-// Выход
 export async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) return { success: false, error: error.message };
     return { success: true };
 }
 
-// Текущий пользователь
 export async function getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
 }
 
-// Профиль пользователя
 export async function getProfile(userId) {
     const { data, error } = await supabase
         .from('profiles')
@@ -68,7 +57,6 @@ export async function getProfile(userId) {
     return data;
 }
 
-// Слушатель изменений авторизации
 export function onAuthChange(callback) {
     return supabase.auth.onAuthStateChange((_event, session) => {
         callback(session?.user || null);
@@ -93,7 +81,6 @@ export async function getProjects() {
 
     if (error) { console.error(error); return []; }
 
-    // Свои проекты + проекты где добавлен как участник
     return (data || []).filter(p =>
         p.owner_id === user.id ||
         (p.members && p.members.includes(email))
@@ -143,7 +130,6 @@ export async function getTasks(projectId = null) {
     const profile = await getProfile(user.id);
     const email = profile?.email || user.email;
 
-    // Загружаем задачи: созданные мной ИЛИ назначенные мне
     let query = supabase
         .from('tasks')
         .select('*')
@@ -231,7 +217,6 @@ export async function deleteNote(id) {
 // INVITATIONS
 // ============================================
 
-// Проверка существования пользователя по email
 export async function checkUserByEmail(email) {
     const { data, error } = await supabase
         .from('profiles')
@@ -242,7 +227,6 @@ export async function checkUserByEmail(email) {
     return { exists: true, user: data };
 }
 
-// Обновление профиля (имя, аватарка)
 export async function updateProfile(userId, updates) {
     const { error } = await supabase
         .from('profiles')
@@ -252,7 +236,7 @@ export async function updateProfile(userId, updates) {
     return { success: true };
 }
 
-
+export async function inviteMember(projectId, email) {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Не авторизован' };
 
