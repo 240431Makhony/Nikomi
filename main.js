@@ -1656,7 +1656,7 @@ function showInviteStatus(msg, type) {
 
 // ===== GEMINI API CALL =====
 async function callGeminiAPI(type, data) {
-    const response = await fetch('/.netlify/functions/gemini', {
+    const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, data })
