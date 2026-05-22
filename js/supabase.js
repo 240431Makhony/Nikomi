@@ -1,0 +1,253 @@
+// ============================================
+// NIKOMI — Supabase Client
+// Ключи хранятся в js/config.js (не в GitHub)
+// ============================================
+
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================
+// AUTH
+// ============================================
+
+// Регистрация
+export async function signUp(email, password, name, role) {
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: { name, role }   // сохраняется в profiles через триггер
+        }
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user };
+}
+
+// Вход по email
+export async function signIn(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user, session: data.session };
+}
+
+// Вход через Google
+export async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+            redirectTo: window.location.origin + '/auth-callback.html'
+        }
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// Выход
+export async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// Текущий пользователь
+export async function getCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+}
+
+// Профиль пользователя
+export async function getProfile(userId) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    if (error) return null;
+    return data;
+}
+
+// Слушатель изменений авторизации
+export function onAuthChange(callback) {
+    return supabase.auth.onAuthStateChange((_event, session) => {
+        callback(session?.user || null);
+    });
+}
+
+// ============================================
+// PROJECTS
+// ============================================
+
+export async function getProjects() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    const profile = await getProfile(user.id);
+    const email = profile?.email || user.email;
+
+    const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); return []; }
+
+    // Свои проекты + проекты где добавлен как участник
+    return (data || []).filter(p =>
+        p.owner_id === user.id ||
+        (p.members && p.members.includes(email))
+    );
+}
+
+export async function createProject(project) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+
+    const { data, error } = await supabase
+        .from('projects')
+        .insert({ ...project, owner_id: user.id })
+        .select()
+        .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, project: data };
+}
+
+export async function updateProject(id, updates) {
+    const { error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function deleteProject(id) {
+    const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ============================================
+// TASKS
+// ============================================
+
+export async function getTasks(projectId = null) {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    let query = supabase
+        .from('tasks')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+
+    if (projectId) query = query.eq('project_id', projectId);
+
+    const { data, error } = await query;
+    if (error) { console.error(error); return []; }
+    return data;
+}
+
+export async function createTask(task) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .insert({ ...task, owner_id: user.id })
+        .select()
+        .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, task: data };
+}
+
+export async function updateTask(id, updates) {
+    const { error } = await supabase
+        .from('tasks')
+        .update(updates)
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function deleteTask(id) {
+    const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ============================================
+// NOTES
+// ============================================
+
+export async function getNotes() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); return []; }
+    return data;
+}
+
+export async function createNote(note) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+
+    const { data, error } = await supabase
+        .from('notes')
+        .insert({ ...note, owner_id: user.id })
+        .select()
+        .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, note: data };
+}
+
+export async function deleteNote(id) {
+    const { error } = await supabase.from('notes').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+// ============================================
+// INVITATIONS
+// ============================================
+
+// Проверка существования пользователя по email
+export async function checkUserByEmail(email) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('email', email)
+        .single();
+    if (error || !data) return { exists: false };
+    return { exists: true, user: data };
+}
+
+export async function inviteMember(projectId, email) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+
+    const { data, error } = await supabase
+        .from('invitations')
+        .insert({ project_id: projectId, invited_email: email, invited_by: user.id })
+        .select()
+        .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, invitation: data };
+}

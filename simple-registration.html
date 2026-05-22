@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Nikomi</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .auth-page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#FAF7F2 0%,#F0EDE6 50%,#E8F5F4 100%); padding:24px; font-family:'DM Sans',sans-serif; }
+        .auth-card { background:#FFFDF9; border-radius:24px; padding:40px; width:100%; max-width:420px; box-shadow:0 8px 40px rgba(180,160,130,0.15); border:1px solid #E8E0D5; }
+        .auth-logo { display:flex; align-items:center; gap:10px; margin-bottom:28px; }
+        .auth-logo img { width:36px; height:36px; border-radius:10px; }
+        .auth-logo span { font-size:20px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; color:#2E2E2E; }
+        .auth-title { font-size:26px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; color:#2E2E2E; margin-bottom:6px; }
+        .auth-subtitle { font-size:14px; color:#7A6F65; margin-bottom:28px; }
+        .auth-form-group { margin-bottom:16px; }
+        .auth-form-group label { display:block; font-size:13px; font-weight:600; color:#2E2E2E; margin-bottom:6px; }
+        .auth-form-group input { width:100%; padding:12px 14px; border:1.5px solid #E8E0D5; border-radius:10px; font-size:14px; font-family:'DM Sans',sans-serif; background:white; color:#2E2E2E; transition:all 0.2s; box-sizing:border-box; }
+        .auth-form-group input:focus { outline:none; border-color:#3AB0A8; box-shadow:0 0 0 3px rgba(58,176,168,0.12); }
+        .btn-auth-primary { width:100%; padding:13px; background:linear-gradient(135deg,#3AB0A8,#319E97); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:12px; box-shadow:0 4px 14px rgba(58,176,168,0.3); }
+        .btn-auth-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(58,176,168,0.4); }
+        .auth-divider { display:flex; align-items:center; gap:12px; margin:16px 0; color:#7A6F65; font-size:13px; }
+        .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#E8E0D5; }
+        .btn-google { width:100%; padding:12px; background:white; color:#2E2E2E; border:1.5px solid #E8E0D5; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'DM Sans',sans-serif; }
+        .btn-google:hover { border-color:#3AB0A8; background:#F8FFFE; transform:translateY(-1px); }
+        .btn-google img { width:18px; height:18px; }
+        .auth-footer { text-align:center; margin-top:20px; font-size:14px; color:#7A6F65; }
+        .auth-footer a { color:#3AB0A8; font-weight:600; text-decoration:none; }
+        .error-msg { background:rgba(229,115,115,0.1); color:#c62828; border:1px solid rgba(229,115,115,0.3); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="pers/iconka.png" alt="Nikomi">
+                <span>Nikomi</span>
+            </div>
+
+            <h1 class="auth-title">Создать аккаунт</h1>
+            <p class="auth-subtitle">Присоединяйтесь к Nikomi</p>
+
+            <button class="btn-google" id="googleRegBtn">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                Зарегистрироваться через Google
+            </button>
+
+            <div class="auth-divider">или</div>
+
+            <div id="errorMsg" class="error-msg"></div>
+
+            <form id="registerForm">
+                <div class="auth-form-group">
+                    <label>Имя</label>
+                    <input type="text" id="regName" placeholder="Ваше имя" required>
+                </div>
+                <div class="auth-form-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="auth-form-group">
+                    <label>Пароль</label>
+                    <input type="password" id="regPassword" placeholder="Минимум 6 символов" required>
+                </div>
+                <button type="submit" class="btn-auth-primary">Зарегистрироваться</button>
+            </form>
+
+            <div class="auth-footer">
+                Уже есть аккаунт? <a href="simple-login.html">Войти</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { signUp, signInWithGoogle, getCurrentUser } from './js/supabase.js';
+
+        getCurrentUser().then(user => {
+            if (user) window.location.href = 'main.html';
+        });
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('regName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const btn = e.target.querySelector('button[type=submit]');
+
+            if (!name) { showError('Введите ваше имя'); return; }
+            if (!email) { showError('Введите email'); return; }
+            if (password.length < 6) { showError('Пароль минимум 6 символов'); return; }
+
+            btn.textContent = 'Создаём аккаунт...';
+            btn.disabled = true;
+
+            // Роль больше не выбирается — все пользователи равны
+            const result = await signUp(email, password, name, 'user');
+
+            if (result.success) {
+                window.location.href = 'main.html';
+            } else {
+                showError(result.error);
+                btn.textContent = 'Зарегистрироваться';
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('googleRegBtn').addEventListener('click', async () => {
+            await signInWithGoogle();
+        });
+    </script>
+</body>
+</html>
