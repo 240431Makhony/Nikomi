@@ -1,6 +1,7 @@
 ﻿// ===== STATE =====
 // Импорт Supabase функций
 import {
+    supabase,
     getCurrentUser, getProfile, signOut as supabaseSignOut,
     getProjects, createProject as sbCreateProject, updateProject as sbUpdateProject, deleteProject as sbDeleteProject,
     getTasks, createTask as sbCreateTask, updateTask as sbUpdateTask, deleteTask as sbDeleteTask,
@@ -21,6 +22,8 @@ let currentTaskId = null;
 let draggedTaskId = null;
 let calendarDate = new Date();
 let isSavingProject = false;
+let rejectTaskId = null;
+let refreshTimer = null;
 
 // Делаем глобальными чтобы onclick в HTML видел их
 window.currentProjectId = null;
@@ -65,6 +68,7 @@ async function init() {
         setTimeout(() => showPersNotif('welcome'), 1000);
     }
     setTimeout(() => checkDeadlines(), 3000);
+    setupRealtimeRefresh();
 }
 
 // ===== SAVE — теперь сохраняем в Supabase =====
@@ -153,6 +157,7 @@ function closeModal(id) {
     }
     if (id === 'taskModal') { document.getElementById('taskName').value = ''; document.getElementById('taskDesc').value = ''; document.getElementById('taskStatus').value = 'todo'; document.getElementById('taskPriority').value = 'medium'; document.getElementById('taskDue').value = ''; document.getElementById('taskProject').value = ''; document.getElementById('taskAssignee').value = ''; resetTaskModalSubmitButton(); const titleEl = document.getElementById('taskModalTitle'); if (titleEl) titleEl.textContent = 'Новая задача'; }
     if (id === 'noteModal') { document.getElementById('noteTitle').value = ''; document.getElementById('noteContent').value = ''; }
+    if (id === 'rejectTaskModal') rejectTaskId = null;
 }
 
 function fillTaskProjectSelect(selectedId) {
@@ -735,6 +740,48 @@ async function updateTaskAndLocal(task, updates) {
     return true;
 }
 
+function scheduleWorkspaceRefresh() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refreshWorkspaceData(), 350);
+}
+
+async function refreshWorkspaceData() {
+    if (!state.user || document.hidden) return;
+    const [projects, tasks, notes] = await Promise.all([
+        getProjects(),
+        getTasks(),
+        getNotes()
+    ]);
+
+    state.projects = projects || [];
+    state.tasks = tasks || [];
+    state.notes = notes || [];
+
+    updateBadges();
+    const activeSection = document.querySelector('.content-section.active')?.id;
+    if (activeSection === 'dashboard-section') renderDashboard();
+    if (activeSection === 'projects-section') renderProjects();
+    if (activeSection === 'tasks-section') renderAllTasks();
+    if (activeSection === 'notes-section') renderNotes();
+    if (activeSection === 'calendar-section') renderCalendar();
+    if (activeSection === 'analytics-section') renderAnalytics();
+    if (activeSection === 'review-section') renderReviewTasks();
+    if (currentProjectId && activeSection === 'project-detail-section') renderKanban(currentProjectId);
+}
+
+function setupRealtimeRefresh() {
+    supabase
+        .channel('workspace-live-refresh')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleWorkspaceRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleWorkspaceRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, scheduleWorkspaceRefresh)
+        .subscribe();
+
+    setInterval(() => {
+        if (!document.hidden) refreshWorkspaceData();
+    }, 12000);
+}
+
 // ===== SEND TO REVIEW =====
 async function sendToReview(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
@@ -833,22 +880,59 @@ async function approveTask(taskId) {
 }
 
 async function rejectTask(taskId) {
+    openRejectTaskModal(taskId);
+}
+
+function openRejectTaskModal(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
     if (!isProjectOwnerForTask(task)) return;
-    const note = prompt('Что нужно доработать? Эта заметка будет видна исполнителю задачи.');
-    if (note === null) return;
-    const trimmedNote = note.trim();
+    rejectTaskId = taskId;
+    const title = document.getElementById('rejectTaskTitle');
+    const note = document.getElementById('rejectTaskNote');
+    const error = document.getElementById('rejectTaskNoteError');
+    if (title) title.textContent = task.title;
+    if (note) {
+        note.value = '';
+        setTimeout(() => note.focus(), 80);
+    }
+    if (error) error.textContent = '';
+    openModal('rejectTaskModal');
+}
+
+function closeRejectTaskModal() {
+    rejectTaskId = null;
+    closeModal('rejectTaskModal');
+}
+
+async function submitRejectTask() {
+    const task = state.tasks.find(t => t.id === rejectTaskId);
+    if (!task) return;
+    const noteEl = document.getElementById('rejectTaskNote');
+    const errorEl = document.getElementById('rejectTaskNoteError');
+    const btn = document.querySelector('#rejectTaskModal .review-note-submit');
+    const trimmedNote = noteEl?.value.trim() || '';
     if (!trimmedNote) {
-        alert('Нужно написать заметку для исполнителя.');
+        if (errorEl) errorEl.textContent = 'Напишите короткую заметку, что нужно исправить.';
+        noteEl?.focus();
         return;
+    }
+    if (errorEl) errorEl.textContent = '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Возвращаем...';
     }
     const ok = await updateTaskAndLocal(task, {
         status: 'inprogress',
         review_note: trimmedNote,
         review_rejected_at: new Date().toISOString()
     });
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rotate-left"></i> Вернуть';
+    }
     if (!ok) return;
+    closeRejectTaskModal();
     updateBadges();
     updateReviewBadge();
     renderReviewTasks();
@@ -2643,7 +2727,7 @@ Object.assign(window, {
     changeMonth, openCalendarDay,
     closePersNotif,
     setTaskFilter,
-    sendToReview, approveTask, rejectTask,
+    sendToReview, approveTask, rejectTask, closeRejectTaskModal, submitRejectTask,
     runAiDecompose, applyDecomposition, switchAiMode,
     runAiDayPlan, runAiDecomposeInModal,
     openNotifPanel,

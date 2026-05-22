@@ -701,6 +701,32 @@
     </div>
 </div>
 
+<!-- Reject Review Modal -->
+<div class="modal-overlay" id="rejectTaskModal">
+    <div class="modal review-note-modal">
+        <div class="modal-header review-note-header">
+            <div>
+                <h3>Вернуть на доработку</h3>
+                <p>Напишите, что именно нужно исправить. Заметка будет видна только исполнителю задачи.</p>
+            </div>
+            <button class="modal-close" onclick="closeRejectTaskModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="review-note-task" id="rejectTaskTitle">Задача</div>
+            <div class="form-group">
+                <label>Заметка для исполнителя *</label>
+                <textarea id="rejectTaskNote" rows="5" placeholder="Например: поправь адаптив на мобильном, проверь контраст кнопок и обнови текст в блоке..." maxlength="600"></textarea>
+                <div class="field-hint">Без заметки вернуть задачу нельзя.</div>
+                <div class="field-error" id="rejectTaskNoteError"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-outline" onclick="closeRejectTaskModal()">Отмена</button>
+            <button class="btn-primary review-note-submit" onclick="submitRejectTask()"><i class="fas fa-rotate-left"></i> Вернуть</button>
+        </div>
+    </div>
+</div>
+
 <!-- Project Detail Modal (quick view) -->
 <div class="modal-overlay" id="projectDetailModal">
     <div class="modal modal-wide">
