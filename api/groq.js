@@ -35,6 +35,7 @@ function buildPrompt(type, data = {}) {
                 const meta = [
                     `priority: ${task.priority || 'medium'}`,
                     task.due_date ? `due: ${task.due_date}` : '',
+                    task.project_deadline ? `project deadline: ${task.project_deadline}` : '',
                     task.description ? `description: ${task.description}` : ''
                 ].filter(Boolean).join(', ');
 
@@ -45,6 +46,7 @@ function buildPrompt(type, data = {}) {
         return [
             'You are a productivity planner.',
             'Build a realistic daily schedule. All user-facing text must be in Russian.',
+            `Planning date: ${data.date || 'today'}`,
             `Work day: ${data.startTime || '09:00'} - ${data.endTime || '18:00'}`,
             `User notes: ${data.notes || 'none'}`,
             '',
@@ -58,14 +60,18 @@ function buildPrompt(type, data = {}) {
             '- Deep development tasks need long uninterrupted blocks: database 150-240 minutes, backend 120-180 minutes, frontend 120-180 minutes, integration 90-150 minutes, architecture/planning 60-120 minutes.',
             '- Small tasks like review, notes, simple fixes, meetings, or requirements clarification can be 30-75 minutes.',
             '- Do not schedule more than 2-3 deep development tasks in one normal work day.',
-            '- If a deep task cannot fit honestly, either schedule only the first realistic focus block and mention continuation in the tip, or move the task to suggestion.',
-            '- If there are too many tasks, set overload to true. In that case, schedule only a feasible subset and list moved tasks in suggestion; do not still put every moved task into schedule.',
+            '- If a deep task cannot fit honestly, schedule only the first realistic focus block and mention continuation in the tip, or move the whole task to carryover.',
+            '- If there are too many tasks, set overload to true. In that case, schedule only a feasible subset and put moved tasks into carryover; do not still put every moved task into schedule.',
+            '- Carryover items must name the exact original task title, a date in YYYY-MM-DD format, and a short reason.',
+            '- Use the next calendar day for urgent carryover. If the deadline is still far away and there is enough slack, you may leave one rest day and move the task to the day after tomorrow; explain that in reason.',
+            '- If a task has no deadline, prefer the next calendar day for carryover.',
             '- Add breaks after deep blocks and lunch only when useful.',
             '- Summary should explain the planning logic, not just repeat that work exists.',
+            '- Suggestion should be a useful paragraph with advice for tomorrow/later, including which task to start with next.',
             '- Return only valid JSON. No markdown, no comments.',
             '',
             'JSON shape:',
-            '{"schedule":[{"time":"09:00","endTime":"09:45","title":"string","duration":45,"priority":"medium","tip":"string","type":"task"}],"summary":"string","overload":false,"suggestion":"string"}',
+            '{"schedule":[{"time":"09:00","endTime":"09:45","title":"string","duration":45,"priority":"medium","tip":"string","type":"task"}],"summary":"string","overload":false,"suggestion":"string","carryover":[{"title":"original task title","date":"YYYY-MM-DD","reason":"string"}]}',
             'Allowed type values: task, break, lunch.',
             'Allowed priority values: high, medium, low.'
         ].join('\n');

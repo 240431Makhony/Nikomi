@@ -1150,8 +1150,18 @@ function renderCalendar() {
         html += `<div class="calendar-day other-month">${d.getDate()}</div>`;
     }
     for (let d = 1; d <= lastDay.getDate(); d++) {
+        const date = new Date(year, month, d);
+        const iso = formatDateISO(date);
+        const dayTasks = state.tasks.filter(t => t.due_date === iso && t.status !== 'done').slice(0, 3);
+        const hiddenCount = state.tasks.filter(t => t.due_date === iso && t.status !== 'done').length - dayTasks.length;
         const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-        html += `<div class="calendar-day ${isToday ? 'today' : ''}">${d}</div>`;
+        html += `<div class="calendar-day ${isToday ? 'today' : ''}">
+            <div style="font-weight:700;margin-bottom:6px;">${d}</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                ${dayTasks.map(t => `<div onclick="event.stopPropagation();showTaskDetail('${t.id}')" title="${escapeHtml(t.title)}" style="font-size:10px;line-height:1.25;padding:3px 5px;border-radius:6px;background:${t.priority === 'high' ? 'rgba(229,115,115,0.16)' : t.priority === 'low' ? 'rgba(76,175,80,0.14)' : 'rgba(248,201,93,0.18)'};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;">${escapeHtml(t.title)}</div>`).join('')}
+                ${hiddenCount > 0 ? `<div style="font-size:10px;color:var(--text-secondary);">+${hiddenCount} ещё</div>` : ''}
+            </div>
+        </div>`;
     }
     const remaining = 42 - startDow - lastDay.getDate();
     for (let d = 1; d <= remaining; d++) {
@@ -1478,6 +1488,10 @@ function formatDate(d) {
     if (!d) return '';
     const date = new Date(d);
     return date.toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function formatDateISO(date) {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ===== PERS NOTIFICATIONS =====
@@ -2023,6 +2037,7 @@ function runAiDayPlan() {
 
     const tasks = checkedIds.map(id => state.tasks.find(t => t.id === id)).filter(Boolean);
     callGroqAPI('dayplan', {
+        date: formatDateISO(new Date()),
         startTime: start,
         endTime: end,
         notes,
@@ -2030,16 +2045,63 @@ function runAiDayPlan() {
             title: t.title,
             description: t.description,
             priority: t.priority,
-            due_date: t.due_date
+            due_date: t.due_date,
+            project_deadline: state.projects.find(p => p.id === t.project_id)?.deadline || null
         }))
-    }).then(result => {
+    }).then(async result => {
         if (!result?.schedule) throw new Error('Groq вернул результат без расписания');
-        renderDayPlanFromAI(result, tasks);
+        const updatedCount = await applyAiDayPlanDates(result, tasks);
+        renderDayPlanFromAI(result, tasks, updatedCount);
     }).catch(error => {
         console.error('Groq day plan error:', error);
         window._aiDayFallback = { tasks, start, end };
         showAiError(output, error.message, 'renderDayPlan(window._aiDayFallback.tasks, window._aiDayFallback.start, window._aiDayFallback.end)');
     });
+}
+
+function findTaskForAiTitle(title, tasks) {
+    const normalizedTitle = normalizeTaskTitle(title);
+    return tasks.find(task => normalizeTaskTitle(task.title) === normalizedTitle) ||
+        tasks.find(task => normalizedTitle.includes(normalizeTaskTitle(task.title)) || normalizeTaskTitle(task.title).includes(normalizedTitle));
+}
+
+function normalizeTaskTitle(value) {
+    return String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+async function applyAiDayPlanDates(aiResult, tasks) {
+    const todayIso = formatDateISO(new Date());
+    const updates = new Map();
+
+    (aiResult.schedule || [])
+        .filter(item => item.type === 'task')
+        .forEach(item => {
+            const task = findTaskForAiTitle(item.title, tasks);
+            if (task) updates.set(task.id, todayIso);
+        });
+
+    (aiResult.carryover || []).forEach(item => {
+        const task = findTaskForAiTitle(item.title, tasks);
+        if (task && item.date) updates.set(task.id, item.date);
+    });
+
+    let updatedCount = 0;
+    for (const [taskId, dueDate] of updates) {
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task || task.due_date === dueDate) continue;
+        const result = await sbUpdateTask(taskId, { due_date: dueDate });
+        if (result.success) {
+            task.due_date = dueDate;
+            updatedCount++;
+        }
+    }
+
+    if (updates.size) {
+        if (document.getElementById('calendar-section').classList.contains('active')) renderCalendar();
+        if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
+        if (document.getElementById('dashboard-section').classList.contains('active')) renderDashboard();
+    }
+    return updatedCount;
 }
 
 function renderDayPlan(tasks, startTime, endTime) {
@@ -2120,11 +2182,12 @@ function renderDayPlan(tasks, startTime, endTime) {
 }
 
 
-function renderDayPlanFromAI(aiResult, tasks) {
+function renderDayPlanFromAI(aiResult, tasks, updatedCount = 0) {
     const output = document.getElementById('aiDayOutput');
     const schedule = aiResult.schedule || [];
     const summary = aiResult.summary || '';
     const suggestion = aiResult.suggestion || '';
+    const carryover = Array.isArray(aiResult.carryover) ? aiResult.carryover : [];
     const overload = aiResult.overload || false;
     const colors = { high: '#E57373', medium: '#F8C95D', low: '#4CAF50', break: '#A78BFA', lunch: '#3AB0A8' };
 
@@ -2161,7 +2224,24 @@ function renderDayPlanFromAI(aiResult, tasks) {
             '</div>';
     }).join('');
 
-    // ????
+    if (suggestion || carryover.length) {
+        html += '<div style="margin-top:14px;padding:14px 16px;background:rgba(58,176,168,0.08);border-radius:12px;border:1px solid rgba(58,176,168,0.22);">' +
+            '<div style="font-size:13px;font-weight:700;color:#25847d;margin-bottom:8px;"><i class="fas fa-lightbulb" style="margin-right:6px;"></i>Советы и переносы</div>' +
+            (suggestion ? '<div style="font-size:12px;color:var(--text-primary);line-height:1.55;margin-bottom:10px;">' + escapeHtml(suggestion) + '</div>' : '') +
+            (carryover.length ? '<div style="display:flex;flex-direction:column;gap:6px;">' + carryover.map(item =>
+                '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--card);border-radius:8px;border:1px solid var(--border);">' +
+                    '<i class="fas fa-calendar-plus" style="color:#3AB0A8;margin-top:2px;"></i>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">' + escapeHtml(item.title) + '</div>' +
+                        '<div style="font-size:11px;color:var(--text-secondary);line-height:1.4;">' + escapeHtml(formatDate(item.date || '') || item.date || '') + (item.reason ? ' · ' + escapeHtml(item.reason) : '') + '</div>' +
+                    '</div>' +
+                '</div>'
+            ).join('') + '</div>' : '') +
+            '<div style="font-size:11px;color:var(--text-secondary);margin-top:10px;">' + (updatedCount ? 'Обновлено дат в календаре: ' + updatedCount + '.' : 'Советы готовы; даты уже совпадали или не потребовали изменений.') + '</div>' +
+        '</div>';
+    }
+
+    // ???? 
     html += '<div style="margin-top:16px;padding:14px 16px;background:rgba(76,175,80,0.08);border-radius:12px;border:1px solid rgba(76,175,80,0.2);text-align:center;">' +
         '<span style="font-size:13px;font-weight:600;color:#2e7d32;">Запланировано блоков: ' + schedule.length + '</span></div>';
 
