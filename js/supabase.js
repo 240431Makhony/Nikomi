@@ -129,18 +129,23 @@ export async function getTasks(projectId = null) {
 
     const profile = await getProfile(user.id);
     const email = profile?.email || user.email;
+    const projects = await getProjects();
+    const accessibleProjectIds = (projects || []).map(p => p.id);
 
     let query = supabase
         .from('tasks')
         .select('*')
-        .or(`owner_id.eq.${user.id},assignee.eq.${email}`)
         .order('created_at', { ascending: false });
 
     if (projectId) query = query.eq('project_id', projectId);
 
     const { data, error } = await query;
     if (error) { console.error(error); return []; }
-    return data;
+    return (data || []).filter(t =>
+        t.owner_id === user.id ||
+        t.assignee === email ||
+        accessibleProjectIds.includes(t.project_id)
+    );
 }
 
 export async function createTask(task) {

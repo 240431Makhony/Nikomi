@@ -332,6 +332,30 @@ body.main-app {
 .task-due { font-size:11px; color:var(--text-secondary); }
 .task-due.overdue { color:#c62828; font-weight:600; }
 
+.task-review-note,
+.task-detail-review-note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(248,201,93,0.16);
+    border: 1px solid rgba(248,201,93,0.35);
+    color: var(--text-primary);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.task-detail-review-note {
+    margin-top: 12px;
+    font-size: 13px;
+}
+.task-review-note i,
+.task-detail-review-note i {
+    color: #b8860b;
+    margin-top: 2px;
+}
+
 .kanban-add-btn {
     width:100%; margin-top:10px; padding:8px;
     background:none; border:1px dashed var(--border);
@@ -714,6 +738,10 @@ body.dark .analytics-bar-track { background: #2A2D3A; }
     transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
 }
+body.dark .pers-notification {
+    background: #1E2130;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+}
 .pers-notification.show {
     transform: translateY(0);
     opacity: 1;
@@ -733,6 +761,9 @@ body.dark .analytics-bar-track { background: #2A2D3A; }
     line-height: 1.5;
     flex: 1;
 }
+body.dark .pers-notif-text { color: #F7F8FC; }
+body.dark .pers-notif-close { color: rgba(247,248,252,0.7); }
+body.dark .pers-notif-close:hover { color: #FFFFFF; }
 .pers-notif-close {
     position: absolute;
     top: 8px; right: 8px;

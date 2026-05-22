@@ -20,6 +20,7 @@ let currentProjectId = null;
 let currentTaskId = null;
 let draggedTaskId = null;
 let calendarDate = new Date();
+let isSavingProject = false;
 
 // Делаем глобальными чтобы onclick в HTML видел их
 window.currentProjectId = null;
@@ -110,6 +111,7 @@ function navigate(section) {
 function resetTaskModalSubmitButton() {
     const btn = document.querySelector('#taskModal .btn-primary');
     if (!btn) return;
+    delete btn.dataset.editing;
     btn.textContent = 'Создать';
     btn.disabled = false;
     btn.onclick = saveTask;
@@ -133,7 +135,8 @@ function openModal(id) {
         fillAssigneeSelect(projectId);
 
         // Сбрасываем кнопку
-        resetTaskModalSubmitButton();
+        const btn = document.querySelector('#taskModal .btn-primary');
+        if (!btn?.dataset.editing) resetTaskModalSubmitButton();
     }
     document.getElementById(id).classList.add('open');
 }
@@ -211,45 +214,35 @@ function openTaskModalForProject(status) {
 
 // ===== PROJECTS =====
 async function saveProject() {
+    if (isSavingProject) return;
     const title = document.getElementById('projectName').value.trim();
     if (!title) { alert('Введите название проекта'); return; }
 
     const btn = document.querySelector('#projectModal .btn-primary');
-    btn.textContent = 'Создаём...'; btn.disabled = true;
+    isSavingProject = true;
+    btn.textContent = 'Создаём...';
+    btn.disabled = true;
 
-    const result = await sbCreateProject({
-        title,
-        description: document.getElementById('projectDesc').value.trim(),
-        status: document.getElementById('projectStatus').value,
-        start_date: document.getElementById('projectStartDate').value || null,
-        deadline: document.getElementById('projectDeadline').value || null,
-    });
+    try {
+        const result = await sbCreateProject({
+            title,
+            description: document.getElementById('projectDesc').value.trim(),
+            status: document.getElementById('projectStatus').value,
+            start_date: document.getElementById('projectStartDate').value || null,
+            deadline: document.getElementById('projectDeadline').value || null,
+        });
 
-    btn.textContent = 'Создать'; btn.disabled = false;
+        if (!result.success) { alert('Ошибка: ' + result.error); return; }
 
-    if (!result.success) { alert('Ошибка: ' + result.error); return; }
+        if (!state.projects.some(p => p.id === result.project.id)) {
+            state.projects.unshift({ ...result.project, members: result.project.members || [] });
+        }
 
-    // Добавляем в локальный state
-    state.projects.unshift({ ...result.project, members: [] });
-    closeModal('projectModal');
-    ['projectName','projectDesc','projectStartDate','projectDeadline'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('projectStatus').value = 'active';
-    // Сбрасываем AI поля
-    const aiInput = document.getElementById('aiModalDecomposeInput');
-    if (aiInput) aiInput.value = '';
-    const aiResult = document.getElementById('aiModalResult');
-    if (aiResult) aiResult.style.display = 'none';
-
-    updateBadges();
-    if (document.getElementById('projects-section').classList.contains('active')) renderProjects();
-    if (document.getElementById('dashboard-section').classList.contains('active')) renderDashboard();
-
-    // Если были сгенерированы AI задачи — создаём их
-    if (window._aiModalPhases && window._aiModalPhases.length) {
-        const projectId = result.project.id;
+        const phases = Array.isArray(window._aiModalPhases) ? window._aiModalPhases : [];
         let created = 0;
-        const createTasks = async () => {
-            for (const phase of window._aiModalPhases) {
+        if (phases.length) {
+            btn.textContent = 'Создаём задачи...';
+            for (const phase of phases) {
                 for (const taskTitle of phase.tasks) {
                     const task = typeof taskTitle === 'string' ? { title: taskTitle, priority: 'medium' } : taskTitle;
                     const r = await sbCreateTask({
@@ -257,19 +250,30 @@ async function saveProject() {
                         description: `Этап: ${phase.name}`,
                         status: 'todo',
                         priority: task.priority || 'medium',
-                        project_id: projectId,
+                        project_id: result.project.id,
                     });
                     if (r.success) { state.tasks.unshift(r.task); created++; }
                 }
             }
-            window._aiModalPhases = null;
-            updateBadges();
-            if (document.getElementById('projects-section').classList.contains('active')) renderProjects();
-            showPersNotif('success', `Проект создан! AI добавил ${created} задач 🚀`);
-        };
-        createTasks();
-    } else {
-        showPersNotif('success', 'Проект создан! Теперь добавьте задачи 🚀');
+        }
+
+        window._aiModalPhases = null;
+        closeModal('projectModal');
+        ['projectName','projectDesc','projectStartDate','projectDeadline'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('projectStatus').value = 'active';
+        const aiInput = document.getElementById('aiModalDecomposeInput');
+        if (aiInput) aiInput.value = '';
+        const aiResult = document.getElementById('aiModalResult');
+        if (aiResult) aiResult.style.display = 'none';
+
+        updateBadges();
+        if (document.getElementById('projects-section').classList.contains('active')) renderProjects();
+        if (document.getElementById('dashboard-section').classList.contains('active')) renderDashboard();
+        showPersNotif('success', created ? `Проект создан! AI добавил ${created} задач` : 'Проект создан! Теперь добавьте задачи');
+    } finally {
+        isSavingProject = false;
+        btn.textContent = 'Создать проект';
+        btn.disabled = false;
     }
 }
 
@@ -690,13 +694,60 @@ function updateReviewBadge() {
     }
 }
 
+function getTaskProject(task) {
+    return state.projects.find(p => p.id === task?.project_id);
+}
+
+function isProjectOwnerForTask(task) {
+    const project = getTaskProject(task);
+    return project?.owner_id === state.user?.id;
+}
+
+function isAssignedToMe(task) {
+    return task?.assignee === state.user?.email;
+}
+
+function canSendTaskToReview(task) {
+    const project = getTaskProject(task);
+    return Boolean(project && !isProjectOwnerForTask(task) && isAssignedToMe(task) && task.status === 'inprogress');
+}
+
+function canChangeTaskStatus(task, status) {
+    const project = getTaskProject(task);
+    if (!project) return task?.owner_id === state.user?.id;
+    if (isProjectOwnerForTask(task)) return true;
+    if (status === 'done' || status === 'review') return false;
+    return isAssignedToMe(task);
+}
+
+function canSeeReviewNote(task) {
+    return Boolean(task?.review_note && task.status === 'inprogress' && isAssignedToMe(task));
+}
+
+async function updateTaskAndLocal(task, updates) {
+    const result = await sbUpdateTask(task.id, updates);
+    if (!result.success) {
+        alert('Ошибка сохранения задачи:\n' + result.error);
+        return false;
+    }
+    Object.assign(task, updates);
+    return true;
+}
+
 // ===== SEND TO REVIEW =====
 async function sendToReview(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
+    if (!canSendTaskToReview(task)) {
+        alert('Эту задачу можно отправить на проверку только из статуса "В процессе" и только назначенному исполнителю.');
+        return;
+    }
 
-    await sbUpdateTask(taskId, { status: 'review' });
-    task.status = 'review';
+    const ok = await updateTaskAndLocal(task, {
+        status: 'review',
+        review_requested_at: new Date().toISOString()
+    });
+    if (!ok) return;
 
     closeModal('taskDetailModal');
     updateBadges();
@@ -738,12 +789,12 @@ function renderReviewTasks() {
         return `
         <div class="review-task-card">
             <div class="review-task-info">
-                <div class="review-task-title">${task.title}</div>
-                ${task.description ? `<div class="review-task-desc">${task.description}</div>` : ''}
+                <div class="review-task-title">${escapeHtml(task.title)}</div>
+                ${task.description ? `<div class="review-task-desc">${escapeHtml(task.description)}</div>` : ''}
                 <div class="review-task-meta">
-                    ${project ? `<span class="task-project-label"><i class="fas fa-folder" style="margin-right:3px;font-size:9px;"></i>${project.title}</span>` : ''}
+                    ${project ? `<span class="task-project-label"><i class="fas fa-folder" style="margin-right:3px;font-size:9px;"></i>${escapeHtml(project.title)}</span>` : ''}
                     <span class="task-priority-badge ${task.priority}">${priorityLabel(task.priority)}</span>
-                    ${task.assignee ? `<span style="font-size:12px;color:var(--text-secondary);"><i class="fas fa-user" style="margin-right:3px;"></i>${task.assignee}</span>` : ''}
+                    ${task.assignee ? `<span style="font-size:12px;color:var(--text-secondary);"><i class="fas fa-user" style="margin-right:3px;"></i>${escapeHtml(task.assignee)}</span>` : ''}
                     ${task.due_date ? `<span class="task-due"><i class="fas fa-clock" style="margin-right:3px;"></i>${formatDate(task.due_date)}</span>` : ''}
                 </div>
             </div>
@@ -765,22 +816,43 @@ function renderReviewTasks() {
 async function approveTask(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
-    await sbUpdateTask(taskId, { status: 'done' });
-    task.status = 'done';
+    if (!isProjectOwnerForTask(task)) return;
+    const ok = await updateTaskAndLocal(task, {
+        status: 'done',
+        review_note: null,
+        reviewed_at: new Date().toISOString()
+    });
+    if (!ok) return;
     updateBadges();
     updateReviewBadge();
     renderReviewTasks();
+    if (currentProjectId && task.project_id === currentProjectId) renderKanban(currentProjectId);
+    if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
     showPersNotif('taskDone', 'Задача принята и отмечена выполненной! ✅');
 }
 
 async function rejectTask(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
-    await sbUpdateTask(taskId, { status: 'inprogress' });
-    task.status = 'inprogress';
+    if (!isProjectOwnerForTask(task)) return;
+    const note = prompt('Что нужно доработать? Эта заметка будет видна исполнителю задачи.');
+    if (note === null) return;
+    const trimmedNote = note.trim();
+    if (!trimmedNote) {
+        alert('Нужно написать заметку для исполнителя.');
+        return;
+    }
+    const ok = await updateTaskAndLocal(task, {
+        status: 'inprogress',
+        review_note: trimmedNote,
+        review_rejected_at: new Date().toISOString()
+    });
+    if (!ok) return;
     updateBadges();
     updateReviewBadge();
     renderReviewTasks();
+    if (currentProjectId && task.project_id === currentProjectId) renderKanban(currentProjectId);
+    if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
     showPersNotif('warning', 'Задача возвращена на доработку 🔄');
 }
 let taskFilters = { priority: 'all', project: 'all' };
@@ -890,21 +962,20 @@ function createTaskCard(task, inProject) {
         ? `<div class="task-project-label"><i class="fas fa-folder" style="margin-right:3px;font-size:9px;"></i>${project.title}</div>`
         : '';
 
-    // Кнопка "На проверку" — только для участников (не владельцев проекта)
-    const myId = state.user?.id;
-    const isOwner = project?.owner_id === myId;
-    const isAssigned = task.assignee === state.user?.email || task.owner_id === myId;
-    const canSendReview = isAssigned && !isOwner && task.status === 'inprogress';
-    const reviewBtn = canSendReview
+    const reviewBtn = canSendTaskToReview(task)
         ? `<button class="review-send-btn" onclick="event.stopPropagation();sendToReview('${task.id}')" title="Отправить на проверку">
                <i class="fas fa-paper-plane"></i>
            </button>`
+        : '';
+    const reviewNote = canSeeReviewNote(task)
+        ? `<div class="task-review-note"><i class="fas fa-comment-dots"></i>${escapeHtml(task.review_note)}</div>`
         : '';
 
     card.innerHTML = `
         ${projectLabel}
         <div class="task-card-title">${task.title}</div>
         ${task.description ? `<div class="task-card-desc">${task.description}</div>` : ''}
+        ${reviewNote}
         <div class="task-card-footer">
             <span class="task-priority-badge ${task.priority}">${priorityLabel(task.priority)}</span>
             ${task.assignee ? `<span style="font-size:11px;color:var(--text-secondary);"><i class="fas fa-user" style="margin-right:3px;"></i>${task.assignee.split('@')[0]}</span>` : ''}
@@ -928,14 +999,24 @@ function setupDropZone(container, status, projectId) {
         container.classList.add('drag-over');
     });
     container.addEventListener('dragleave', () => container.classList.remove('drag-over'));
-    container.addEventListener('drop', e => {
+    container.addEventListener('drop', async e => {
         e.preventDefault();
         container.classList.remove('drag-over');
         if (!draggedTaskId) return;
         const task = state.tasks.find(t => t.id === draggedTaskId);
         if (!task) return;
-        sbUpdateTask(draggedTaskId, { status });
-        task.status = status;
+        if (!canChangeTaskStatus(task, status)) {
+            draggedTaskId = null;
+            showPersNotif('warning', status === 'done'
+                ? 'Исполнитель не может сам отметить задачу готовой. Отправьте её на проверку.'
+                : 'Недостаточно прав для смены этого статуса.');
+            return;
+        }
+        const ok = await updateTaskAndLocal(task, { status });
+        if (!ok) {
+            draggedTaskId = null;
+            return;
+        }
         draggedTaskId = null;
         if (projectId) renderKanban(projectId);
         else renderAllTasks();
@@ -952,7 +1033,12 @@ function showTaskDetail(id) {
     if (!task) return;
 
     document.getElementById('taskDetailTitle').textContent = task.title;
-    document.getElementById('taskDetailDesc').textContent = task.description || 'Нет описания';
+    document.getElementById('taskDetailDesc').innerHTML =
+        `${escapeHtml(task.description || 'Нет описания')}${
+            canSeeReviewNote(task)
+                ? `<span class="task-detail-review-note"><i class="fas fa-comment-dots"></i><strong>Доработать:</strong> ${escapeHtml(task.review_note)}</span>`
+                : ''
+        }`;
 
     const statusEl = document.getElementById('taskDetailStatus');
     statusEl.className = `task-status-badge ${task.status}`;
@@ -965,12 +1051,9 @@ function showTaskDetail(id) {
     document.getElementById('taskDetailDue').textContent = task.due_date ? 'Срок: ' + formatDate(task.due_date) : '';
 
     // Показываем/скрываем кнопку "Отправить на проверку"
-    const project = state.projects.find(p => p.id === task.project_id);
-    const myId = state.user?.id;
-    const myEmail = state.user?.email;
-    const isOwner = project?.owner_id === myId;
-    const isAssigned = task.assignee === myEmail || task.owner_id === myId;
-    const canSendReview = isAssigned && !isOwner && task.status === 'inprogress';
+    const project = getTaskProject(task);
+    const isOwner = isProjectOwnerForTask(task);
+    const canSendReview = canSendTaskToReview(task);
 
     const reviewBtnEl = document.getElementById('taskDetailReviewBtn');
     if (reviewBtnEl) {
@@ -990,8 +1073,14 @@ async function changeTaskStatus(id, status) {
     const taskId = id || window.currentTaskId;
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
-    await sbUpdateTask(taskId, { status });
-    task.status = status;
+    if (!canChangeTaskStatus(task, status)) {
+        alert(status === 'done'
+            ? 'Исполнитель не может сам отметить задачу готовой. Нужно отправить её на проверку.'
+            : 'Недостаточно прав для смены этого статуса.');
+        return;
+    }
+    const ok = await updateTaskAndLocal(task, { status });
+    if (!ok) return;
     // Обновляем отображение в модале
     const statusEl = document.getElementById('taskDetailStatus');
     if (statusEl) {
@@ -1039,6 +1128,7 @@ function openEditTaskModal(id) {
     }, 50);
     // Меняем кнопку на "Сохранить"
     const btn = document.querySelector('#taskModal .btn-primary');
+    btn.dataset.editing = 'true';
     btn.textContent = 'Сохранить';
     btn.onclick = () => saveEditTask(taskId);
     const title = document.getElementById('taskModalTitle');
@@ -1061,6 +1151,16 @@ async function saveEditTask(taskId) {
         project_id: document.getElementById('taskProject').value || null,
         assignee: document.getElementById('taskAssignee')?.value?.trim() || null,
     };
+
+    const existingTask = state.tasks.find(t => t.id === taskId);
+    if (existingTask && updates.status !== existingTask.status && !canChangeTaskStatus(existingTask, updates.status)) {
+        btn.textContent = 'Сохранить';
+        btn.disabled = false;
+        alert(updates.status === 'done'
+            ? 'Исполнитель не может сам отметить задачу готовой. Нужно отправить её на проверку.'
+            : 'Недостаточно прав для смены этого статуса.');
+        return;
+    }
 
     const result = await sbUpdateTask(taskId, updates);
     btn.textContent = 'Сохранить'; btn.disabled = false;
@@ -1634,7 +1734,7 @@ function statusLabel(s) {
     return { active:'Активен', planning:'Планирование', completed:'Завершен', paused:'Приостановлен' }[s] || s;
 }
 function taskStatusLabel(s) {
-    return { todo:'В планах', inprogress:'В процессе', done:'Сделано' }[s] || s;
+    return { todo:'В планах', inprogress:'В процессе', review:'На проверке', done:'Сделано' }[s] || s;
 }
 function priorityLabel(p) {
     return { low:'Низкий', medium:'Средний', high:'Высокий' }[p] || p;
