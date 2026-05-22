@@ -709,14 +709,15 @@ function isAssignedToMe(task) {
 
 function canSendTaskToReview(task) {
     const project = getTaskProject(task);
-    return Boolean(project && !isProjectOwnerForTask(task) && isAssignedToMe(task) && task.status === 'inprogress');
+    return Boolean(project && !isProjectOwnerForTask(task) && isAssignedToMe(task) && ['todo', 'inprogress'].includes(task.status));
 }
 
 function canChangeTaskStatus(task, status) {
     const project = getTaskProject(task);
     if (!project) return task?.owner_id === state.user?.id;
     if (isProjectOwnerForTask(task)) return true;
-    if (status === 'done' || status === 'review') return false;
+    if (status === 'review') return canSendTaskToReview(task);
+    if (status === 'done') return false;
     return isAssignedToMe(task);
 }
 
@@ -739,7 +740,7 @@ async function sendToReview(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
     if (!canSendTaskToReview(task)) {
-        alert('Эту задачу можно отправить на проверку только из статуса "В процессе" и только назначенному исполнителю.');
+        alert('Эту задачу может отправить на проверку только назначенный исполнитель.');
         return;
     }
 

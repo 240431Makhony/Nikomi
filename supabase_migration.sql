@@ -10,6 +10,12 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_rejected_at TIMESTAMPTZ;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 
+-- Обновить constraint статусов: без этого Supabase отвечает 400
+-- "violates check constraint tasks_status_check" при отправке на проверку.
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
+ALTER TABLE tasks ADD CONSTRAINT tasks_status_check
+CHECK (status IN ('todo', 'inprogress', 'review', 'done'));
+
 -- Если RLS включен, владельцу проекта нужно видеть и проверять задачи своего проекта,
 -- даже когда owner_id задачи принадлежит исполнителю.
 DO $$
