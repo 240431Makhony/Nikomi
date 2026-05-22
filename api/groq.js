@@ -31,7 +31,15 @@ function buildPrompt(type, data = {}) {
     if (type === 'dayplan') {
         const tasks = Array.isArray(data.tasks) ? data.tasks : [];
         const taskList = tasks
-            .map(task => `- ${task.title || 'Task'} (priority: ${task.priority || 'medium'}${task.due_date ? `, due: ${task.due_date}` : ''})`)
+            .map(task => {
+                const meta = [
+                    `priority: ${task.priority || 'medium'}`,
+                    task.due_date ? `due: ${task.due_date}` : '',
+                    task.description ? `description: ${task.description}` : ''
+                ].filter(Boolean).join(', ');
+
+                return `- ${task.title || 'Task'} (${meta})`;
+            })
             .join('\n');
 
         return [
@@ -45,9 +53,15 @@ function buildPrompt(type, data = {}) {
             '',
             'Rules:',
             '- Keep the schedule inside the work day.',
-            '- Use 45-120 minute focus blocks for hard tasks.',
-            '- Add short breaks and lunch only when useful.',
-            '- If there are too many tasks, set overload to true and explain what to move.',
+            '- Estimate task size realistically before scheduling. Do not give the same duration to every task.',
+            '- Database work, schema design, migrations, authorization/RLS, backend APIs, frontend implementation, and component integration are deep development tasks.',
+            '- Deep development tasks need long uninterrupted blocks: database 150-240 minutes, backend 120-180 minutes, frontend 120-180 minutes, integration 90-150 minutes, architecture/planning 60-120 minutes.',
+            '- Small tasks like review, notes, simple fixes, meetings, or requirements clarification can be 30-75 minutes.',
+            '- Do not schedule more than 2-3 deep development tasks in one normal work day.',
+            '- If a deep task cannot fit honestly, either schedule only the first realistic focus block and mention continuation in the tip, or move the task to suggestion.',
+            '- If there are too many tasks, set overload to true. In that case, schedule only a feasible subset and list moved tasks in suggestion; do not still put every moved task into schedule.',
+            '- Add breaks after deep blocks and lunch only when useful.',
+            '- Summary should explain the planning logic, not just repeat that work exists.',
             '- Return only valid JSON. No markdown, no comments.',
             '',
             'JSON shape:',

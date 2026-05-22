@@ -2026,7 +2026,12 @@ function runAiDayPlan() {
         startTime: start,
         endTime: end,
         notes,
-        tasks: tasks.map(t => ({ title: t.title, priority: t.priority, due_date: t.due_date }))
+        tasks: tasks.map(t => ({
+            title: t.title,
+            description: t.description,
+            priority: t.priority,
+            due_date: t.due_date
+        }))
     }).then(result => {
         if (!result?.schedule) throw new Error('Groq вернул результат без расписания');
         renderDayPlanFromAI(result, tasks);
