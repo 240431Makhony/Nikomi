@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Nikomi</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .auth-page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#FAF7F2 0%,#F0EDE6 50%,#E8F5F4 100%); padding:24px; font-family:'DM Sans',sans-serif; }
+        .auth-card { background:#FFFDF9; border-radius:24px; padding:40px; width:100%; max-width:420px; box-shadow:0 8px 40px rgba(180,160,130,0.15); border:1px solid #E8E0D5; }
+        .auth-logo { display:flex; align-items:center; gap:10px; margin-bottom:28px; }
+        .auth-logo img { width:36px; height:36px; border-radius:10px; }
+        .auth-logo span { font-size:20px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; color:#2E2E2E; }
+        .auth-title { font-size:26px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; color:#2E2E2E; margin-bottom:6px; }
+        .auth-subtitle { font-size:14px; color:#7A6F65; margin-bottom:28px; }
+        .auth-form-group { margin-bottom:16px; }
+        .auth-form-group label { display:block; font-size:13px; font-weight:600; color:#2E2E2E; margin-bottom:6px; }
+        .auth-form-group input { width:100%; padding:12px 14px; border:1.5px solid #E8E0D5; border-radius:10px; font-size:14px; font-family:'DM Sans',sans-serif; background:white; color:#2E2E2E; transition:all 0.2s; box-sizing:border-box; }
+        .auth-form-group input:focus { outline:none; border-color:#3AB0A8; box-shadow:0 0 0 3px rgba(58,176,168,0.12); }
+        .btn-auth-primary { width:100%; padding:13px; background:linear-gradient(135deg,#3AB0A8,#319E97); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:12px; box-shadow:0 4px 14px rgba(58,176,168,0.3); }
+        .btn-auth-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(58,176,168,0.4); }
+        .auth-divider { display:flex; align-items:center; gap:12px; margin:16px 0; color:#7A6F65; font-size:13px; }
+        .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#E8E0D5; }
+        .btn-google { width:100%; padding:12px; background:white; color:#2E2E2E; border:1.5px solid #E8E0D5; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'DM Sans',sans-serif; }
+        .btn-google:hover { border-color:#3AB0A8; background:#F8FFFE; transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+        .btn-google img { width:18px; height:18px; }
+        .auth-footer { text-align:center; margin-top:20px; font-size:14px; color:#7A6F65; }
+        .auth-footer a { color:#3AB0A8; font-weight:600; text-decoration:none; }
+        .auth-footer a:hover { text-decoration:underline; }
+        .forgot-link { text-align:right; margin-top:-8px; margin-bottom:16px; }
+        .forgot-link a { font-size:13px; color:#3AB0A8; text-decoration:none; }
+        .error-msg { background:rgba(229,115,115,0.1); color:#c62828; border:1px solid rgba(229,115,115,0.3); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none; }
+        body { opacity:1; }
+        body.loaded { opacity:1; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="pers/iconka.png" alt="Nikomi">
+                <span>Nikomi</span>
+            </div>
+            <h1 class="auth-title">Добро пожаловать!</h1>
+            <p class="auth-subtitle">Войдите в свой аккаунт Nikomi</p>
+
+            <button class="btn-google" id="googleLoginBtn">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                Войти через Google
+            </button>
+
+            <div class="auth-divider">или</div>
+
+            <div id="errorMsg" class="error-msg"></div>
+
+            <form id="loginForm">
+                <div class="auth-form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="auth-form-group">
+                    <label>Пароль</label>
+                    <input type="password" id="loginPassword" placeholder="Ваш пароль" required>
+                </div>
+                <div class="forgot-link"><a href="#">Забыли пароль?</a></div>
+                <button type="submit" class="btn-auth-primary">Войти</button>
+            </form>
+
+            <div class="auth-footer">
+                Нет аккаунта? <a href="simple-registration.html">Зарегистрироваться</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { signIn, signInWithGoogle, getCurrentUser, supabase } from './js/supabase.js';
+
+        // Обрабатываем редирект после Google OAuth
+        // Supabase возвращает токен в URL как #access_token=...
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            // Supabase сам обработает токен, просто ждём
+            supabase.auth.getSession().then(({ data }) => {
+                if (data.session) {
+                    window.location.href = 'main.html';
+                }
+            });
+        } else {
+            // Обычная проверка — если уже авторизован
+            getCurrentUser().then(user => {
+                if (user) window.location.href = 'main.html';
+            });
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.background = 'rgba(229,115,115,0.1)';
+            el.style.color = '#c62828';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = e.target.querySelector('button[type=submit]');
+
+            btn.textContent = 'Входим...';
+            btn.disabled = true;
+
+            const result = await signIn(email, password);
+
+            if (result.success) {
+                window.location.href = 'main.html';
+            } else {
+                // Понятные сообщения об ошибках
+                let msg = result.error;
+                if (msg.includes('Email not confirmed')) {
+                    msg = '📧 Email не подтверждён. Зайди в Supabase → Authentication → Users → найди свой email → подтверди. Или выключи "Confirm email" в настройках Supabase.';
+                } else if (msg.includes('Invalid login credentials')) {
+                    msg = '❌ Неверный email или пароль';
+                } else if (msg.includes('User not found')) {
+                    msg = '❌ Пользователь не найден. Зарегистрируйтесь';
+                }
+                showError(msg);
+                btn.textContent = 'Войти';
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            await signInWithGoogle();
+        });
+    </script>
+</body>
+</html>
