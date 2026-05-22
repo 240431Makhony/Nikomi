@@ -579,19 +579,29 @@ async function saveTask() {
     const btn = document.querySelector('#taskModal .btn-primary');
     btn.textContent = 'Создаём...'; btn.disabled = true;
 
-    const result = await sbCreateTask({
+    const assigneeVal = document.getElementById('taskAssignee')?.value?.trim() || null;
+    console.log('saveTask assignee value:', assigneeVal);
+
+    const taskData = {
         title,
         description: document.getElementById('taskDesc').value.trim(),
         status: document.getElementById('taskStatus').value,
         priority: document.getElementById('taskPriority').value,
         due_date: document.getElementById('taskDue').value || null,
         project_id: document.getElementById('taskProject').value || null,
-        assignee: document.getElementById('taskAssignee')?.value?.trim() || null,
-    });
+        assignee: assigneeVal,
+    };
+    console.log('saveTask data:', taskData);
+
+    const result = await sbCreateTask(taskData);
 
     btn.textContent = 'Создать'; btn.disabled = false;
 
-    if (!result.success) { alert('Ошибка: ' + result.error); return; }
+    if (!result.success) { 
+        console.error('saveTask error:', result.error);
+        alert('Ошибка сохранения задачи:\n' + result.error); 
+        return; 
+    }
 
     state.tasks.unshift(result.task);
     closeModal('taskModal');
