@@ -385,7 +385,7 @@
                         <h1 class="section-title">AI Декомпозиция</h1>
                         <p class="section-subtitle">Добавьте задачи в существующий проект с помощью AI</p>
                     </div>
-                    <span style="background:linear-gradient(135deg,#A78BFA,#7C3AED);color:white;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;">✨ Gemini AI</span>
+                    <span style="background:linear-gradient(135deg,#A78BFA,#7C3AED);color:white;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;">Groq AI</span>
                 </div>
 
                 <!-- Подсказка -->
@@ -416,7 +416,7 @@
                             </div>
                             </div><!-- /aiExistingBlock -->
                             <div id="aiNewBlock" style="display:none;">
-                            <div class="form-group"><label>Название нового проекта *</label><input type="text" id="aiNewProjectName" placeholder="???????? ???????" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text-primary);box-sizing:border-box;"></div>
+                            <div class="form-group"><label>Название нового проекта *</label><input type="text" id="aiNewProjectName" placeholder="Название проекта" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text-primary);box-sizing:border-box;"></div>
                             </div>
 
                             <div class="form-group">
@@ -456,7 +456,7 @@
                         <h1 class="section-title">Мой день</h1>
                         <p class="section-subtitle">AI составит оптимальное расписание на день на основе ваших задач</p>
                     </div>
-                    <span style="background:linear-gradient(135deg,#A78BFA,#7C3AED);color:white;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;">✨ Gemini AI</span>
+                    <span style="background:linear-gradient(135deg,#A78BFA,#7C3AED);color:white;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;">Groq AI</span>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
@@ -548,12 +548,12 @@
                 </div>
                 <div class="form-group">
                     <label>Опишите проект подробно для AI</label>
-                    <textarea id="aiDecomposeInput" rows="3" placeholder="Например: нужно создать сайт для кафе с меню, онлайн-заказом и личным кабинетом..." style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;resize:vertical;font-family:'DM Sans',sans-serif;background:var(--card);color:var(--text-primary);box-sizing:border-box;"></textarea>
+                    <textarea id="aiModalDecomposeInput" rows="3" placeholder="Например: нужно создать сайт для кафе с меню, онлайн-заказом и личным кабинетом..." style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;resize:vertical;font-family:'DM Sans',sans-serif;background:var(--card);color:var(--text-primary);box-sizing:border-box;"></textarea>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;">
                     <div style="flex:1;">
                         <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Срок (дней)</label>
-                        <input type="number" id="aiDecomposeDays" value="30" min="1" max="365" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text-primary);">
+                        <input type="number" id="aiModalDecomposeDays" value="30" min="1" max="365" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text-primary);">
                     </div>
                     <button type="button" onclick="runAiDecomposeInModal()" style="margin-top:18px;padding:10px 16px;background:linear-gradient(135deg,#A78BFA,#7C3AED);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(124,58,237,0.3);">
                         <i class="fas fa-magic"></i> Сгенерировать задачи

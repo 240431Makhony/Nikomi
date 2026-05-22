@@ -131,7 +131,7 @@ function closeModal(id) {
         document.getElementById('projectName').value = ''; 
         document.getElementById('projectDesc').value = ''; 
         document.getElementById('projectStatus').value = 'active';
-        document.getElementById('aiDecomposeInput').value = '';
+        document.getElementById('aiModalDecomposeInput').value = '';
         const aiResult = document.getElementById('aiModalResult');
         if (aiResult) aiResult.style.display = 'none';
         window._aiModalPhases = null;
@@ -218,7 +218,7 @@ async function saveProject() {
     ['projectName','projectDesc','projectStartDate','projectDeadline'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('projectStatus').value = 'active';
     // Сбрасываем AI поля
-    const aiInput = document.getElementById('aiDecomposeInput');
+    const aiInput = document.getElementById('aiModalDecomposeInput');
     if (aiInput) aiInput.value = '';
     const aiResult = document.getElementById('aiModalResult');
     if (aiResult) aiResult.style.display = 'none';
@@ -234,11 +234,12 @@ async function saveProject() {
         const createTasks = async () => {
             for (const phase of window._aiModalPhases) {
                 for (const taskTitle of phase.tasks) {
+                    const task = typeof taskTitle === 'string' ? { title: taskTitle, priority: 'medium' } : taskTitle;
                     const r = await sbCreateTask({
-                        title: taskTitle,
+                        title: task.title,
                         description: `Этап: ${phase.name}`,
                         status: 'todo',
-                        priority: 'medium',
+                        priority: task.priority || 'medium',
                         project_id: projectId,
                     });
                     if (r.success) { state.tasks.unshift(r.task); created++; }
@@ -1654,9 +1655,9 @@ function showInviteStatus(msg, type) {
 }
 
 
-// ===== GEMINI API CALL =====
-async function callGeminiAPI(type, data) {
-    const response = await fetch('/api/gemini', {
+// ===== GROQ API CALL =====
+async function callGroqAPI(type, data) {
+    const response = await fetch('/api/groq', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, data })
@@ -1664,9 +1665,9 @@ async function callGeminiAPI(type, data) {
     const result = await response.json().catch(() => null);
     if (!response.ok || !result?.success) {
         if (response.status === 404) {
-            throw new Error('Netlify function не найдена. Сделайте новый deploy и проверьте, что netlify/functions/gemini.js попал в репозиторий.');
+            throw new Error('Vercel API route не найден. Сделайте новый deploy и проверьте, что api/groq.js попал в репозиторий.');
         }
-        throw new Error(result?.error || `Gemini API error: ${response.status}`);
+        throw new Error(result?.error || `Groq API error: ${response.status}`);
     }
     return result.result;
 }
@@ -1675,11 +1676,11 @@ function showAiError(output, message, fallbackAction = '') {
     if (!output) return;
     output.innerHTML = `
         <div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;border:1px solid rgba(229,115,115,0.25);line-height:1.5;">
-            <div style="font-weight:700;margin-bottom:4px;">Gemini не ответил</div>
-            <div style="font-size:13px;">${escapeHtml(message || 'Проверьте GEMINI_API_KEY в Netlify и сделайте новый deploy.')}</div>
+            <div style="font-weight:700;margin-bottom:4px;">Groq не ответил</div>
+            <div style="font-size:13px;">${escapeHtml(message || 'Проверьте GROQ_API_KEY в Vercel и сделайте новый deploy.')}</div>
             ${fallbackAction ? `
                 <button class="btn-primary" style="margin-top:12px;padding:10px 14px;background:linear-gradient(135deg,#3AB0A8,#2A9D95);" onclick="${fallbackAction}">
-                    Использовать локальный вариант без Gemini
+                    Использовать локальный вариант без Groq
                 </button>
             ` : ''}
         </div>`;
@@ -1696,7 +1697,7 @@ function escapeHtml(value) {
 
 function normalizeAiPhases(result, fallbackDays) {
     const phases = Array.isArray(result) ? result : result?.phases;
-    if (!Array.isArray(phases) || !phases.length) throw new Error('Gemini вернул результат без этапов');
+    if (!Array.isArray(phases) || !phases.length) throw new Error('Groq вернул результат без этапов');
 
     let currentDay = 0;
     return phases.map((phase, index) => {
@@ -1756,8 +1757,8 @@ function renderAiDecompose() {
 
 // Запуск AI прямо в модале создания проекта
 async function runAiDecomposeInModal() {
-    const description = document.getElementById('aiDecomposeInput').value.trim();
-    const days = parseInt(document.getElementById('aiDecomposeDays').value) || 30;
+    const description = document.getElementById('aiModalDecomposeInput').value.trim();
+    const days = parseInt(document.getElementById('aiModalDecomposeDays').value) || 30;
     const output = document.getElementById('aiModalResult');
 
     if (!description) {
@@ -1774,7 +1775,7 @@ async function runAiDecomposeInModal() {
         </div>`;
 
     try {
-        const result = await callGeminiAPI('decompose', {
+        const result = await callGroqAPI('decompose', {
             title: document.getElementById('projectName')?.value.trim() || 'Новый проект',
             description,
             days
@@ -1783,7 +1784,7 @@ async function runAiDecomposeInModal() {
         window._aiModalPhases = phases;
         renderDecomposeInModal(phases);
     } catch (error) {
-        console.error('Gemini decomposition error:', error);
+        console.error('Groq decomposition error:', error);
         window._aiModalPhases = normalizeAiPhases({ phases: generateMockDecomposition(description, days) }, days);
         showAiError(output, error.message, 'renderDecomposeInModal(window._aiModalPhases)');
     }
@@ -1807,7 +1808,7 @@ function renderDecomposeInModal(phases) {
                 </div>
             `).join('')}
         </div>
-        <button type="button" onclick="window._aiModalPhases = null; document.getElementById('aiModalResult').style.display='none'; document.getElementById('aiDecomposeInput').value='';" 
+        <button type="button" onclick="window._aiModalPhases = null; document.getElementById('aiModalResult').style.display='none'; document.getElementById('aiModalDecomposeInput').value='';" 
             style="margin-top:8px;background:none;border:none;color:var(--text-secondary);font-size:12px;cursor:pointer;padding:4px;">
             ✕ Отменить генерацию
         </button>
@@ -1831,12 +1832,12 @@ async function runAiDecompose() {
         // ??????? ????? ??????
         const newName = document.getElementById('aiNewProjectName')?.value.trim();
         if (!newName) {
-            document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">??????? ???????? ?????? ???????</div>';
+            document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">Введите название нового проекта</div>';
             return;
         }
         const result = await sbCreateProject({ title: newName, description: '', status: 'active' });
         if (!result.success) {
-            document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">?????? ???????? ???????: ' + result.error + '</div>';
+            document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">Ошибка создания проекта: ' + result.error + '</div>';
             return;
         }
         state.projects.unshift({ ...result.project, members: [] });
@@ -1859,14 +1860,14 @@ async function runAiDecompose() {
 
     try {
         const project = state.projects.find(p => p.id === projectId);
-        const result = await callGeminiAPI('decompose', {
+        const result = await callGroqAPI('decompose', {
             title: project?.title || document.getElementById('aiNewProjectName')?.value.trim() || 'Новый проект',
             description,
             days
         });
         renderDecomposeResult(normalizeAiPhases(result, days), projectId);
     } catch (error) {
-        console.error('Gemini decomposition error:', error);
+        console.error('Groq decomposition error:', error);
         window._aiDecomposeFallback = {
             phases: normalizeAiPhases({ phases: generateMockDecomposition(description, days) }, days),
             projectId
@@ -1900,7 +1901,7 @@ function renderDecomposeResult(phases, projectId) {
     output.innerHTML = `
         <div style="margin-bottom:16px;padding:12px 16px;background:rgba(167,139,250,0.1);border-radius:10px;border-left:3px solid #A78BFA;">
             <div style="font-size:13px;font-weight:600;color:#7C3AED;">✨ AI предлагает ${phases.length} этапов</div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Результат сгенерирован через Gemini</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Результат сгенерирован через Groq</div>
         </div>
         ${phases.map((phase, i) => `
             <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
@@ -2021,16 +2022,16 @@ function runAiDayPlan() {
         </div>`;
 
     const tasks = checkedIds.map(id => state.tasks.find(t => t.id === id)).filter(Boolean);
-    callGeminiAPI('dayplan', {
+    callGroqAPI('dayplan', {
         startTime: start,
         endTime: end,
         notes,
         tasks: tasks.map(t => ({ title: t.title, priority: t.priority, due_date: t.due_date }))
     }).then(result => {
-        if (!result?.schedule) throw new Error('Gemini вернул результат без расписания');
+        if (!result?.schedule) throw new Error('Groq вернул результат без расписания');
         renderDayPlanFromAI(result, tasks);
     }).catch(error => {
-        console.error('Gemini day plan error:', error);
+        console.error('Groq day plan error:', error);
         window._aiDayFallback = { tasks, start, end };
         showAiError(output, error.message, 'renderDayPlan(window._aiDayFallback.tasks, window._aiDayFallback.start, window._aiDayFallback.end)');
     });
@@ -2080,7 +2081,7 @@ function renderDayPlan(tasks, startTime, endTime) {
     output.innerHTML = `
         <div style="margin-bottom:16px;padding:12px 16px;background:rgba(167,139,250,0.1);border-radius:10px;border-left:3px solid #A78BFA;">
             <div style="font-size:13px;font-weight:600;color:#7C3AED;">✨ Оптимальный план на день</div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Локальный план без Gemini</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Локальный план без Groq</div>
         </div>
         ${schedule.map(item => item.type === 'break' ? `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;background:var(--bg-main);border-radius:10px;border:1px dashed var(--border);">
@@ -2135,7 +2136,7 @@ function renderDayPlanFromAI(aiResult, tasks) {
     // ??????????? ?????? ?? AI
     html += '<div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(167,139,250,0.1),rgba(58,176,168,0.08));border-radius:12px;border-left:3px solid #A78BFA;display:flex;gap:10px;align-items:flex-start;">' +
         '<span style="font-size:20px;flex-shrink:0;">AI</span>' +
-        '<div><div style="font-size:13px;font-weight:700;color:#7C3AED;margin-bottom:4px;">Gemini AI</div>' +
+        '<div><div style="font-size:13px;font-weight:700;color:#7C3AED;margin-bottom:4px;">Groq AI</div>' +
         '<div style="font-size:13px;color:var(--text-primary);line-height:1.6;">' + escapeHtml(summary) + '</div></div></div>';
 
     // ??????????
