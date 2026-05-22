@@ -140,10 +140,14 @@ export async function getTasks(projectId = null) {
     const user = await getCurrentUser();
     if (!user) return [];
 
+    const profile = await getProfile(user.id);
+    const email = profile?.email || user.email;
+
+    // Загружаем задачи: созданные мной ИЛИ назначенные мне
     let query = supabase
         .from('tasks')
         .select('*')
-        .eq('owner_id', user.id)
+        .or(`owner_id.eq.${user.id},assignee.eq.${email}`)
         .order('created_at', { ascending: false });
 
     if (projectId) query = query.eq('project_id', projectId);
@@ -238,7 +242,17 @@ export async function checkUserByEmail(email) {
     return { exists: true, user: data };
 }
 
-export async function inviteMember(projectId, email) {
+// Обновление профиля (имя, аватарка)
+export async function updateProfile(userId, updates) {
+    const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Не авторизован' };
 

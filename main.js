@@ -5,7 +5,7 @@ import {
     getProjects, createProject as sbCreateProject, updateProject as sbUpdateProject, deleteProject as sbDeleteProject,
     getTasks, createTask as sbCreateTask, updateTask as sbUpdateTask, deleteTask as sbDeleteTask,
     getNotes, createNote as sbCreateNote, deleteNote as sbDeleteNote,
-    inviteMember, checkUserByEmail
+    inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile
 } from './js/supabase.js';
 
 let state = {
@@ -159,23 +159,29 @@ function fillAssigneeSelect(projectId) {
     const sel = document.getElementById('taskAssignee');
     if (!sel) return;
     sel.innerHTML = '<option value="">— Не назначен —</option>';
+
+    const myEmail = state.user?.email;
+
+    // Всегда добавляем себя первым
+    if (myEmail) {
+        const opt = document.createElement('option');
+        opt.value = myEmail;
+        opt.textContent = myEmail + ' (я)';
+        sel.appendChild(opt);
+    }
+
     if (!projectId) return;
     const project = state.projects.find(p => p.id === projectId);
     if (!project || !project.members) return;
+
+    // Добавляем участников проекта (кроме себя — уже добавлен)
     project.members.forEach(email => {
+        if (email === myEmail) return;
         const opt = document.createElement('option');
         opt.value = email;
         opt.textContent = email;
         sel.appendChild(opt);
     });
-    // Добавляем себя
-    const myEmail = state.user?.email;
-    if (myEmail && !project.members.includes(myEmail)) {
-        const opt = document.createElement('option');
-        opt.value = myEmail;
-        opt.textContent = myEmail + ' (я)';
-        sel.insertBefore(opt, sel.children[1]);
-    }
 }
 
 function openTaskModalForProject(status) {
@@ -1005,6 +1011,11 @@ function openEditTaskModal(id) {
     document.getElementById('taskDue').value = task.due_date || '';
     fillTaskProjectSelect(task.project_id);
     if (task.project_id) document.getElementById('taskProject').value = task.project_id;
+    // Заполняем исполнителя
+    setTimeout(() => {
+        const assigneeSel = document.getElementById('taskAssignee');
+        if (assigneeSel && task.assignee) assigneeSel.value = task.assignee;
+    }, 50);
     // Меняем кнопку на "Сохранить"
     const btn = document.querySelector('#taskModal .btn-primary');
     btn.textContent = 'Сохранить';
@@ -1027,6 +1038,7 @@ async function saveEditTask(taskId) {
         priority: document.getElementById('taskPriority').value,
         due_date: document.getElementById('taskDue').value || null,
         project_id: document.getElementById('taskProject').value || null,
+        assignee: document.getElementById('taskAssignee')?.value?.trim() || null,
     };
 
     const result = await sbUpdateTask(taskId, updates);
@@ -1147,28 +1159,87 @@ function renderCalendar() {
 
     for (let i = 0; i < startDow; i++) {
         const d = new Date(year, month, -startDow + i + 1);
-        html += `<div class="calendar-day other-month">${d.getDate()}</div>`;
+        html += `<div class="calendar-day other-month"><span class="cal-day-num">${d.getDate()}</span></div>`;
     }
     for (let d = 1; d <= lastDay.getDate(); d++) {
         const date = new Date(year, month, d);
         const iso = formatDateISO(date);
-        const dayTasks = state.tasks.filter(t => t.due_date === iso && t.status !== 'done').slice(0, 3);
-        const hiddenCount = state.tasks.filter(t => t.due_date === iso && t.status !== 'done').length - dayTasks.length;
+        const allDayTasks = state.tasks.filter(t => t.due_date === iso && t.status !== 'done');
+        const dayTasks = allDayTasks.slice(0, 2);
+        const hiddenCount = allDayTasks.length - dayTasks.length;
         const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-        html += `<div class="calendar-day ${isToday ? 'today' : ''}">
-            <div style="font-weight:700;margin-bottom:6px;">${d}</div>
-            <div style="display:flex;flex-direction:column;gap:4px;">
-                ${dayTasks.map(t => `<div onclick="event.stopPropagation();showTaskDetail('${t.id}')" title="${escapeHtml(t.title)}" style="font-size:10px;line-height:1.25;padding:3px 5px;border-radius:6px;background:${t.priority === 'high' ? 'rgba(229,115,115,0.16)' : t.priority === 'low' ? 'rgba(76,175,80,0.14)' : 'rgba(248,201,93,0.18)'};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;">${escapeHtml(t.title)}</div>`).join('')}
-                ${hiddenCount > 0 ? `<div style="font-size:10px;color:var(--text-secondary);">+${hiddenCount} ещё</div>` : ''}
+        const hasTasks = allDayTasks.length > 0;
+
+        html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasTasks ? 'has-tasks' : ''}" onclick="openCalendarDay('${iso}')">
+            <span class="cal-day-num">${d}</span>
+            <div class="cal-tasks-list">
+                ${dayTasks.map(t => `
+                    <div class="cal-task-chip cal-task-${t.priority}" onclick="event.stopPropagation();showTaskDetail('${t.id}')" title="${escapeHtml(t.title)}">
+                        ${escapeHtml(t.title)}
+                    </div>`).join('')}
+                ${hiddenCount > 0 ? `<div class="cal-task-more">+${hiddenCount} ещё</div>` : ''}
             </div>
         </div>`;
     }
     const remaining = 42 - startDow - lastDay.getDate();
     for (let d = 1; d <= remaining; d++) {
-        html += `<div class="calendar-day other-month">${d}</div>`;
+        html += `<div class="calendar-day other-month"><span class="cal-day-num">${d}</span></div>`;
     }
     html += '</div>';
     container.innerHTML = html;
+}
+
+function openCalendarDay(iso) {
+    const dayTasks = state.tasks.filter(t => t.due_date === iso);
+    const date = new Date(iso + 'T00:00:00');
+    const label = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Удаляем старый попап если есть
+    const old = document.getElementById('calDayPopup');
+    if (old) old.remove();
+
+    if (!dayTasks.length) return; // нечего показывать
+
+    const popup = document.createElement('div');
+    popup.id = 'calDayPopup';
+    popup.className = 'cal-day-popup';
+    popup.innerHTML = `
+        <div class="cal-day-popup-header">
+            <span class="cal-day-popup-title"><i class="fas fa-calendar-day"></i> ${label}</span>
+            <button class="cal-day-popup-close" onclick="document.getElementById('calDayPopup').remove()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="cal-day-popup-tasks">
+            ${dayTasks.map(t => `
+                <div class="cal-day-popup-task" onclick="document.getElementById('calDayPopup').remove();showTaskDetail('${t.id}')">
+                    <span class="cal-popup-prio cal-popup-prio-${t.priority}"></span>
+                    <div class="cal-popup-task-info">
+                        <div class="cal-popup-task-title">${escapeHtml(t.title)}</div>
+                        <div class="cal-popup-task-meta">
+                            <span class="task-status-badge ${t.status}" style="font-size:10px;padding:2px 7px;">${taskStatusLabel(t.status)}</span>
+                            ${t.assignee ? `<span style="font-size:11px;color:var(--text-secondary);"><i class="fas fa-user" style="margin-right:2px;"></i>${t.assignee.split('@')[0]}</span>` : ''}
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:var(--text-secondary);font-size:11px;margin-left:auto;"></i>
+                </div>
+            `).join('')}
+        </div>
+        <div class="cal-day-popup-footer">
+            <button class="btn-primary" style="width:100%;padding:9px;font-size:13px;" onclick="document.getElementById('calDayPopup').remove();openModal('taskModal')">
+                <i class="fas fa-plus"></i> Добавить задачу
+            </button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    // Закрываем при клике вне
+    setTimeout(() => {
+        document.addEventListener('click', function closePop(e) {
+            if (!popup.contains(e.target)) {
+                popup.remove();
+                document.removeEventListener('click', closePop);
+            }
+        });
+    }, 50);
 }
 
 function changeMonth(dir) {
@@ -1314,26 +1385,51 @@ function renderProfile() {
     document.getElementById('profileDate').textContent = formatDate(profile?.created_at || user?.created_at);
     document.getElementById('profileProjects').textContent = state.projects.length;
     document.getElementById('profileTasksDone').textContent = state.tasks.filter(t => t.status === 'done').length;
+
+    // Аватарка в профиле
+    const profileAvatar = document.getElementById('profileAvatarEl');
+    if (profileAvatar) {
+        const avatarUrl = profile?.avatar_url;
+        if (avatarUrl) {
+            profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        } else {
+            profileAvatar.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+    }
 }
 
 // ===== SETTINGS =====
 function renderSettings() {
     document.getElementById('settingsName').value = state.profile?.name || '';
     document.getElementById('settingsEmail').value = state.user?.email || '';
+    const avatarUrl = state.profile?.avatar_url || '';
+    document.getElementById('settingsAvatarUrl').value = avatarUrl;
+    // Обновляем превью
+    const preview = document.getElementById('settingsAvatarPreview');
+    if (preview) {
+        if (avatarUrl) {
+            preview.innerHTML = `<img src="${avatarUrl}" alt="preview" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
+        } else {
+            preview.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+    }
 }
 
 async function saveSettings() {
     const name = document.getElementById('settingsName').value.trim() || state.profile?.name;
+    const avatarUrl = document.getElementById('settingsAvatarUrl').value.trim();
     const btn = document.querySelector('#settings-section .btn-primary');
 
     if (state.profile) {
         btn.textContent = 'Сохраняем...'; btn.disabled = true;
-        const { error } = await import('./js/supabase.js').then(m =>
-            m.supabase.from('profiles').update({ name }).eq('id', state.user.id)
-        );
+        const updates = { name };
+        if (avatarUrl !== undefined) updates.avatar_url = avatarUrl || null;
+
+        const result = await sbUpdateProfile(state.user.id, updates);
         btn.disabled = false;
-        if (!error) {
+        if (result.success) {
             state.profile.name = name;
+            state.profile.avatar_url = avatarUrl || null;
             updateUserUI();
             btn.innerHTML = '<i class="fas fa-check"></i> Сохранено';
             btn.style.background = 'linear-gradient(135deg,#4CAF50,#388E3C)';
@@ -1360,6 +1456,7 @@ function updateBadges() {
     document.getElementById('tasksBadge').textContent = myTasks.length;
     updateReviewBadge();
     updateTeamProjectsSidebar();
+    updateNotifBadge();
 }
 
 function updateUserUI() {
@@ -1367,6 +1464,28 @@ function updateUserUI() {
     const email = state.user?.email || '';
     document.getElementById('sidebarUserName').textContent = name;
     document.getElementById('sidebarUserEmail').textContent = email;
+
+    // Аватарка в сайдбаре
+    const sidebarAvatar = document.querySelector('.user-profile .user-avatar');
+    if (sidebarAvatar) {
+        const avatarUrl = state.profile?.avatar_url;
+        if (avatarUrl) {
+            sidebarAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        } else {
+            sidebarAvatar.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+    }
+
+    // Аватарка в хедере
+    const headerAvatar = document.getElementById('headerUserBtn');
+    if (headerAvatar) {
+        const avatarUrl = state.profile?.avatar_url;
+        if (avatarUrl) {
+            headerAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        } else {
+            headerAvatar.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+    }
 }
 
 // ===== SEARCH =====
@@ -1457,6 +1576,23 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ===== USER PROFILE CLICK =====
 document.getElementById('userProfileBtn').addEventListener('click', () => navigate('profile'));
 document.getElementById('headerUserBtn').addEventListener('click', () => navigate('profile'));
+
+// ===== AVATAR PREVIEW IN SETTINGS =====
+document.addEventListener('input', e => {
+    if (e.target.id === 'settingsAvatarUrl') {
+        const preview = document.getElementById('settingsAvatarPreview');
+        if (!preview) return;
+        const url = e.target.value.trim();
+        if (url) {
+            preview.innerHTML = `<img src="${url}" alt="preview" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
+        } else {
+            preview.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+    }
+});
+
+// ===== NOTIFICATIONS BUTTON =====
+// Кнопка уведомлений управляется через onclick="openNotifPanel()" в HTML
 
 // ===== LOGOUT =====
 document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -1669,7 +1805,108 @@ function showInviteStatus(msg, type) {
 }
 
 
-// ===== GROQ API CALL =====
+// ===== NOTIFICATIONS PANEL =====
+function buildNotifications() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const notifs = [];
+
+    // Просроченные задачи
+    state.tasks.forEach(t => {
+        if (!t.due_date || t.status === 'done') return;
+        const d = new Date(t.due_date); d.setHours(0,0,0,0);
+        const diff = Math.ceil((d - today) / (1000*60*60*24));
+        if (diff < 0) {
+            notifs.push({ icon: 'fa-exclamation-circle', color: '#E57373', title: 'Просрочена задача', text: t.title, sub: `${Math.abs(diff)} дн. назад`, taskId: t.id });
+        } else if (diff === 0) {
+            notifs.push({ icon: 'fa-clock', color: '#F8C95D', title: 'Срок сегодня', text: t.title, sub: 'Нужно завершить сегодня', taskId: t.id });
+        } else if (diff <= 2) {
+            notifs.push({ icon: 'fa-bell', color: '#3AB0A8', title: 'Скоро дедлайн', text: t.title, sub: `Осталось ${diff} дн.`, taskId: t.id });
+        }
+    });
+
+    // Просроченные проекты
+    state.projects.forEach(p => {
+        if (!p.deadline || p.status === 'completed') return;
+        const d = new Date(p.deadline); d.setHours(0,0,0,0);
+        const diff = Math.ceil((d - today) / (1000*60*60*24));
+        if (diff < 0) {
+            notifs.push({ icon: 'fa-folder-open', color: '#E57373', title: 'Проект просрочен', text: p.title, sub: `${Math.abs(diff)} дн. назад` });
+        } else if (diff <= 3) {
+            notifs.push({ icon: 'fa-flag', color: '#F8C95D', title: 'Дедлайн проекта', text: p.title, sub: `Осталось ${diff} дн.` });
+        }
+    });
+
+    // Задачи на проверку (для владельцев)
+    const myId = state.user?.id;
+    const myProjectIds = state.projects.filter(p => p.owner_id === myId).map(p => p.id);
+    const reviewCount = state.tasks.filter(t => t.status === 'review' && myProjectIds.includes(t.project_id)).length;
+    if (reviewCount > 0) {
+        notifs.push({ icon: 'fa-clipboard-check', color: '#A78BFA', title: 'Задачи на проверку', text: `${reviewCount} задач ждут вашей проверки`, sub: 'Нажмите чтобы перейти', section: 'review' });
+    }
+
+    return notifs;
+}
+
+function openNotifPanel() {
+    const old = document.getElementById('notifPanel');
+    if (old) { old.remove(); return; }
+
+    const notifs = buildNotifications();
+    const panel = document.createElement('div');
+    panel.id = 'notifPanel';
+    panel.className = 'notif-panel';
+    panel.innerHTML = `
+        <div class="notif-panel-header">
+            <span><i class="fas fa-bell" style="margin-right:8px;color:var(--primary);"></i>Уведомления</span>
+            <button onclick="document.getElementById('notifPanel').remove()" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:14px;padding:4px;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="notif-panel-body">
+            ${notifs.length ? notifs.map(n => `
+                <div class="notif-item" onclick="${n.taskId ? `document.getElementById('notifPanel').remove();showTaskDetail('${n.taskId}')` : n.section ? `document.getElementById('notifPanel').remove();navigate('${n.section}')` : ''}">
+                    <div class="notif-item-icon" style="background:${n.color}22;color:${n.color};"><i class="fas ${n.icon}"></i></div>
+                    <div class="notif-item-content">
+                        <div class="notif-item-title">${n.title}</div>
+                        <div class="notif-item-text">${n.text}</div>
+                        <div class="notif-item-sub">${n.sub}</div>
+                    </div>
+                </div>
+            `).join('') : `
+                <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);">
+                    <i class="fas fa-check-circle" style="font-size:36px;opacity:0.3;display:block;margin-bottom:12px;color:var(--primary);"></i>
+                    <div style="font-size:14px;font-weight:600;">Всё в порядке!</div>
+                    <div style="font-size:12px;margin-top:4px;">Нет новых уведомлений</div>
+                </div>
+            `}
+        </div>
+    `;
+    document.body.appendChild(panel);
+
+    // Закрываем при клике вне
+    setTimeout(() => {
+        document.addEventListener('click', function closePanel(e) {
+            const btn = document.querySelector('.action-btn');
+            if (!panel.contains(e.target) && !e.target.closest('.action-btn')) {
+                panel.remove();
+                document.removeEventListener('click', closePanel);
+            }
+        });
+    }, 50);
+}
+
+function updateNotifBadge() {
+    const notifs = buildNotifications();
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+        if (notifs.length > 0) {
+            badge.textContent = notifs.length;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+
 async function callGroqAPI(type, data) {
     const response = await fetch('/api/groq', {
         method: 'POST',
@@ -2283,10 +2520,12 @@ Object.assign(window, {
     saveNote,
     openInviteModal, copyInviteLink, sendInvite,
     saveSettings,
-    changeMonth,
+    changeMonth, openCalendarDay,
     closePersNotif,
     setTaskFilter,
     sendToReview, approveTask, rejectTask,
     runAiDecompose, applyDecomposition, switchAiMode,
     runAiDayPlan, runAiDecomposeInModal,
+    openNotifPanel,
 });
+

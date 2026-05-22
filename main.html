@@ -113,11 +113,15 @@
             </div>
             <div class="header-right">
                 <div class="search-box">
-                    <i class="fas fa-search"></i>
+                    <i class="fas fa-search search-icon"></i>
                     <input type="text" placeholder="Поиск..." id="searchInput">
+                    <kbd class="search-kbd">⌘K</kbd>
                 </div>
                 <div class="header-actions">
-                    <button class="action-btn"><i class="fas fa-bell"></i><span class="notification-badge" id="notifBadge" style="display:none">0</span></button>
+                    <button class="action-btn notif-btn" onclick="openNotifPanel()" title="Уведомления">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge" id="notifBadge" style="display:none">0</span>
+                    </button>
                     <div class="user-avatar-small" id="headerUserBtn"><i class="fas fa-user"></i></div>
                 </div>
             </div>
@@ -333,7 +337,7 @@
             <section class="content-section" id="profile-section">
                 <div class="section-header"><h1 class="section-title">Профиль</h1></div>
                 <div class="profile-card">
-                    <div class="profile-avatar"><i class="fas fa-user"></i></div>
+                    <div class="profile-avatar" id="profileAvatarEl"><i class="fas fa-user"></i></div>
                     <div class="profile-info">
                         <div class="profile-field">
                             <label>Имя пользователя</label>
@@ -343,7 +347,10 @@
                             <label>Email</label>
                             <div class="profile-value" id="profileEmail">—</div>
                         </div>
-
+                        <div class="profile-field">
+                            <label>Роль</label>
+                            <div class="profile-value"><span class="role-badge" id="profileRole">—</span></div>
+                        </div>
                         <div class="profile-field">
                             <label>Дата регистрации</label>
                             <div class="profile-value" id="profileDate">—</div>
@@ -372,6 +379,16 @@
                     <div class="form-group">
                         <label>Email</label>
                         <input type="email" id="settingsEmail" placeholder="Email" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>Аватарка (URL изображения)</label>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input type="url" id="settingsAvatarUrl" placeholder="https://example.com/avatar.jpg" style="flex:1;">
+                            <div id="settingsAvatarPreview" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3AB0A8,#4CAF50);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;overflow:hidden;border:2px solid var(--border);">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:5px;">Вставьте прямую ссылку на изображение (jpg, png, gif)</div>
                     </div>
                     <button class="btn-primary" onclick="saveSettings()">Сохранить</button>
                 </div>
