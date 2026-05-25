@@ -367,3 +367,37 @@ export async function deleteTaskAttachment(id) {
     if (error) return { success: false, error: error.message };
     return { success: true };
 }
+
+// ============================================
+// TASK COMMENTS
+// ============================================
+
+export async function getTaskComments(taskId) {
+    const { data, error } = await supabase
+        .from('task_comments')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+    if (error) { console.error(error); return []; }
+    return data || [];
+}
+
+export async function addTaskComment(taskId, text) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+    const { data, error } = await supabase
+        .from('task_comments')
+        .insert({ task_id: taskId, author_id: user.id, text })
+        .select().single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, comment: data };
+}
+
+export async function deleteTaskComment(id) {
+    const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}

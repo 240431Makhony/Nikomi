@@ -7,7 +7,8 @@ import {
     getTasks, createTask as sbCreateTask, updateTask as sbUpdateTask, deleteTask as sbDeleteTask,
     getNotes, createNote as sbCreateNote, deleteNote as sbDeleteNote,
     inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile, getAllProfiles,
-    getTaskAttachments, addTaskLink, uploadTaskFile, deleteTaskAttachment
+    getTaskAttachments, addTaskLink, uploadTaskFile, deleteTaskAttachment,
+    getTaskComments, addTaskComment, deleteTaskComment
 } from './js/supabase.js';
 
 let state = {
@@ -852,11 +853,44 @@ async function refreshWorkspaceData() {
 
 function setupRealtimeRefresh() {
     // Подписываемся только на projects и notes — tasks обновляем только вручную
-    // чтобы избежать мигания и дублей при drag-and-drop
     supabase
         .channel('workspace-live-refresh')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleWorkspaceRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, scheduleWorkspaceRefresh)
+        .subscribe();
+
+    // Realtime для комментариев — мгновенное обновление
+    supabase
+        .channel('comments-live')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'task_comments'
+        }, (payload) => {
+            const newComment = payload.new;
+            // Если открыт модал этой задачи — обновляем комментарии
+            const modal = document.getElementById('taskDetailModal');
+            if (modal?.classList.contains('open') && window.currentTaskId === newComment.task_id) {
+                // Не перезагружаем если это наш собственный комментарий (уже добавлен)
+                if (newComment.author_id !== state.user?.id) {
+                    loadTaskComments(newComment.task_id);
+                    // Показываем уведомление
+                    const profile = state.profiles?.find(p => p.id === newComment.author_id);
+                    const name = profile?.name || profile?.email?.split('@')[0] || 'Кто-то';
+                    showPersNotif('info', `${name} написал комментарий 💬`);
+                }
+            }
+        })
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'task_comments'
+        }, (payload) => {
+            const modal = document.getElementById('taskDetailModal');
+            if (modal?.classList.contains('open') && window.currentTaskId) {
+                loadTaskComments(window.currentTaskId);
+            }
+        })
         .subscribe();
 
     // Фоновый рефреш каждые 60 секунд
@@ -1236,8 +1270,9 @@ function showTaskDetail(id) {
     }
 
     openModal('taskDetailModal');
-    // Загружаем вложения
+    // Загружаем вложения и комментарии
     loadTaskAttachments(id);
+    loadTaskComments(id);
 }
 
 async function changeTaskStatus(id, status) {
@@ -1350,6 +1385,72 @@ async function saveEditTask(taskId) {
         if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
         showPersNotif('info', 'Задача обновлена! ✏️');
     }, 1000);
+}
+
+// ===== TASK COMMENTS =====
+async function loadTaskComments(taskId) {
+    const container = document.getElementById('taskCommentsList');
+    const countEl = document.getElementById('commentsCount');
+    if (!container) return;
+
+    const comments = await getTaskComments(taskId);
+    if (countEl) countEl.textContent = comments.length;
+
+    if (!comments.length) {
+        container.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:8px;">Нет комментариев. Будьте первым!</div>`;
+        return;
+    }
+
+    container.innerHTML = comments.map(c => {
+        const isMe = c.author_id === state.user?.id;
+        const profile = state.profiles?.find(p => p.id === c.author_id);
+        const authorName = profile?.name || profile?.email?.split('@')[0] || 'Пользователь';
+        const avatarUrl = profile?.avatar_url;
+        const avatarEl = avatarUrl
+            ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3AB0A8,#2A9D95);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0;">${authorName[0].toUpperCase()}</div>`;
+        const time = new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+
+        return `
+        <div style="display:flex;gap:8px;align-items:flex-start;${isMe ? 'flex-direction:row-reverse;' : ''}">
+            ${avatarEl}
+            <div style="max-width:80%;${isMe ? 'align-items:flex-end;' : ''}display:flex;flex-direction:column;gap:3px;">
+                <div style="font-size:11px;color:var(--text-secondary);${isMe ? 'text-align:right;' : ''}">${isMe ? 'Вы' : authorName} · ${time}</div>
+                <div style="background:${isMe ? 'var(--primary)' : 'var(--bg-main)'};color:${isMe ? 'white' : 'var(--text-primary)'};padding:8px 12px;border-radius:${isMe ? '14px 4px 14px 14px' : '4px 14px 14px 14px'};font-size:13px;line-height:1.5;border:1px solid ${isMe ? 'transparent' : 'var(--border)'};">
+                    ${escapeHtml(c.text)}
+                </div>
+                ${isMe ? `<button onclick="removeComment('${c.id}')" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text-secondary);padding:0;text-align:right;" onmouseover="this.style.color='#c62828'" onmouseout="this.style.color='var(--text-secondary)'">удалить</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    // Скроллим вниз
+    container.scrollTop = container.scrollHeight;
+}
+
+async function submitComment() {
+    const text = document.getElementById('newCommentText')?.value?.trim();
+    if (!text) return;
+
+    const taskId = window.currentTaskId;
+    const btn = document.querySelector('#taskDetailModal .fa-paper-plane')?.closest('button');
+    if (btn) setBtnLoading(btn, '');
+
+    const result = await addTaskComment(taskId, text);
+
+    if (btn) setBtnDone(btn, '<i class="fas fa-paper-plane"></i>');
+    if (!result.success) { alert('Ошибка: ' + result.error); return; }
+
+    document.getElementById('newCommentText').value = '';
+    loadTaskComments(taskId);
+
+    // Уведомляем участников задачи через бейдж
+    updateNotifBadge();
+}
+
+async function removeComment(id) {
+    const result = await deleteTaskComment(id);
+    if (result.success) loadTaskComments(window.currentTaskId);
 }
 
 // ===== TASK ATTACHMENTS =====
@@ -3059,5 +3160,6 @@ Object.assign(window, {
     runAiDayPlan, runAiDecomposeInModal,
     openNotifPanel,
     addAttachmentLink, uploadAttachmentFile, removeAttachment, saveLinkAttachment,
+    submitComment, removeComment,
 });
 

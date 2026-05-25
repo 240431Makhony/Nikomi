@@ -714,6 +714,26 @@
                 </div>
             </div>
         </div>
+
+        <!-- Комментарии -->
+        <div style="border-top:1px solid var(--border);padding:16px 24px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                <i class="fas fa-comments" style="color:var(--primary);"></i> Комментарии
+                <span id="commentsCount" style="background:var(--border);color:var(--text-secondary);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600;">0</span>
+            </div>
+            <div id="taskCommentsList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:240px;overflow-y:auto;"></div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+                <textarea id="newCommentText" placeholder="Написать комментарий..." rows="2"
+                    style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;font-size:13px;resize:none;font-family:'DM Sans',sans-serif;background:var(--bg-main);color:var(--text-primary);transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'"
+                    onkeydown="if(event.ctrlKey&&event.key==='Enter')submitComment()"></textarea>
+                <button onclick="submitComment()" class="btn-primary" style="padding:10px 14px;flex-shrink:0;align-self:flex-end;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:5px;">Ctrl+Enter для отправки</div>
+        </div>
+
         <div class="modal-footer">
             <button class="btn-danger" onclick="deleteTask(window.currentTaskId)"><i class="fas fa-trash"></i> Удалить</button>
             <button class="btn-secondary-outline" onclick="openEditTaskModal(window.currentTaskId)"><i class="fas fa-edit"></i> Редактировать</button>
