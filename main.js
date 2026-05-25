@@ -1797,16 +1797,33 @@ function renderAnalytics() {
     const medium = state.tasks.filter(t => t.priority === 'medium').length;
     const low = state.tasks.filter(t => t.priority === 'low').length;
 
-    // --- Stat cards ---
-    document.getElementById('analyticsStatsRow').innerHTML = `
-        <div class="analytics-stat-card"><div class="analytics-stat-number">${total}</div><div class="analytics-stat-label">Всего задач</div></div>
-        <div class="analytics-stat-card"><div class="analytics-stat-number" style="color:#60B4F0">${todo}</div><div class="analytics-stat-label">В планах</div></div>
-        <div class="analytics-stat-card"><div class="analytics-stat-number" style="color:#F8C95D">${inprogress}</div><div class="analytics-stat-label">В процессе</div></div>
-        <div class="analytics-stat-card"><div class="analytics-stat-number" style="color:#4CAF50">${done}</div><div class="analytics-stat-label">Выполнено</div></div>
-        <div class="analytics-stat-card"><div class="analytics-stat-number">${state.projects.length}</div><div class="analytics-stat-label">Проектов</div></div>
+    // --- Stat cards с анимацией счётчика ---
+    const statsRow = document.getElementById('analyticsStatsRow');
+    statsRow.innerHTML = `
+        <div class="analytics-stat-card anim-card"><div class="analytics-stat-number" data-target="${total}" style="color:var(--primary)">0</div><div class="analytics-stat-label">Всего задач</div></div>
+        <div class="analytics-stat-card anim-card"><div class="analytics-stat-number" data-target="${todo}" style="color:#60B4F0">0</div><div class="analytics-stat-label">В планах</div></div>
+        <div class="analytics-stat-card anim-card"><div class="analytics-stat-number" data-target="${inprogress}" style="color:#F8C95D">0</div><div class="analytics-stat-label">В процессе</div></div>
+        <div class="analytics-stat-card anim-card"><div class="analytics-stat-number" data-target="${done}" style="color:#4CAF50">0</div><div class="analytics-stat-label">Выполнено</div></div>
+        <div class="analytics-stat-card anim-card"><div class="analytics-stat-number" data-target="${state.projects.length}">0</div><div class="analytics-stat-label">Проектов</div></div>
     `;
+    // Анимируем числа
+    statsRow.querySelectorAll('.analytics-stat-number[data-target]').forEach((el, i) => {
+        const target = parseInt(el.dataset.target);
+        if (target === 0) { el.textContent = '0'; return; }
+        let start = 0;
+        const duration = 800;
+        const step = 16;
+        const increment = target / (duration / step);
+        setTimeout(() => {
+            const timer = setInterval(() => {
+                start = Math.min(start + increment, target);
+                el.textContent = Math.round(start);
+                if (start >= target) clearInterval(timer);
+            }, step);
+        }, i * 80);
+    });
 
-    // --- Donut Chart (задачи по статусам) ---
+    // --- Donut Chart ---
     const donutData = [
         { value: todo, color: '#60B4F0', label: 'В планах' },
         { value: inprogress, color: '#F8C95D', label: 'В процессе' },
@@ -1814,7 +1831,7 @@ function renderAnalytics() {
     ];
     renderDonut('donutChart', 'donutLegend', donutData, total);
 
-    // --- Projects bars ---
+    // --- Projects bars с анимацией ---
     const projData = [
         { label: 'Активных', value: active, color: '#4CAF50' },
         { label: 'Планирование', value: planning, color: '#F8C95D' },
@@ -1822,14 +1839,16 @@ function renderAnalytics() {
         { label: 'Приостановлено', value: paused, color: '#E57373' }
     ];
     const projTotal = state.projects.length || 1;
-    document.getElementById('projectsBarsChart').innerHTML = projData.map(d => `
-        <div class="analytics-bar">
+    document.getElementById('projectsBarsChart').innerHTML = projData.map((d, i) => `
+        <div class="analytics-bar anim-card" style="animation-delay:${i*80}ms">
             <span class="analytics-bar-label">${d.label}</span>
-            <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${(d.value/projTotal*100).toFixed(0)}%;background:${d.color};"></div></div>
+            <div class="analytics-bar-track">
+                <div class="analytics-bar-fill anim-bar" data-width="${(d.value/projTotal*100).toFixed(0)}" style="width:0%;background:${d.color};transition:width 0.8s cubic-bezier(0.4,0,0.2,1) ${i*100}ms;"></div>
+            </div>
             <span class="analytics-bar-value">${d.value}</span>
         </div>`).join('');
 
-    // --- Priority bar chart ---
+    // --- Priority bar chart с анимацией ---
     const maxPrio = Math.max(high, medium, low, 1);
     const prioData = [
         { label: 'Высокий', value: high, color: '#E57373' },
@@ -1837,36 +1856,52 @@ function renderAnalytics() {
         { label: 'Низкий', value: low, color: '#4CAF50' }
     ];
     const barH = 120;
-    document.getElementById('priorityBarChart').innerHTML = prioData.map(d => {
+    document.getElementById('priorityBarChart').innerHTML = prioData.map((d, i) => {
         const h = maxPrio > 0 ? Math.round((d.value / maxPrio) * barH) : 4;
         return `
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
             <span style="font-size:12px;font-weight:700;color:var(--text-primary)">${d.value}</span>
-            <div style="width:100%;height:${h}px;background:${d.color};border-radius:8px 8px 0 0;transition:height 0.5s;min-height:4px;"></div>
+            <div style="width:100%;height:0px;background:${d.color};border-radius:8px 8px 0 0;min-height:4px;transition:height 0.7s cubic-bezier(0.4,0,0.2,1) ${i*120}ms;" data-height="${h}"></div>
             <span style="font-size:11px;color:var(--text-secondary);text-align:center;">${d.label}</span>
         </div>`;
     }).join('') + `<div style="position:absolute;bottom:24px;left:0;right:0;height:1px;background:var(--border);"></div>`;
 
-    // --- Projects progress ---
+    // --- Projects progress с анимацией ---
     if (!state.projects.length) {
         document.getElementById('projectsProgressChart').innerHTML = '<p style="color:var(--text-secondary);font-size:13px;padding:8px 0;">Нет проектов</p>';
-        return;
+    } else {
+        document.getElementById('projectsProgressChart').innerHTML = state.projects.map((p, i) => {
+            const tasks = state.tasks.filter(t => t.project_id === p.id);
+            const doneTasks = tasks.filter(t => t.status === 'done').length;
+            const progress = tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0;
+            const isOwner = p.owner_id === state.user?.id;
+            return `
+            <div class="anim-card" style="margin-bottom:14px;animation-delay:${i*60}ms">
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px;align-items:center;">
+                    <span style="font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+                        ${isOwner ? '<i class="fas fa-crown" style="font-size:10px;color:var(--primary);"></i>' : '<i class="fas fa-users" style="font-size:10px;color:#A78BFA;"></i>'}
+                        ${p.title}
+                    </span>
+                    <span style="font-size:12px;font-weight:700;color:var(--primary)">${progress}%</span>
+                </div>
+                <div class="analytics-bar-track" style="height:10px;">
+                    <div class="analytics-bar-fill anim-bar" data-width="${progress}" style="width:0%;background:linear-gradient(90deg,var(--primary),var(--success));transition:width 0.8s cubic-bezier(0.4,0,0.2,1) ${i*80}ms;"></div>
+                </div>
+            </div>`;
+        }).join('');
     }
-    document.getElementById('projectsProgressChart').innerHTML = state.projects.slice(0, 5).map(p => {
-        const tasks = state.tasks.filter(t => t.project_id === p.id);
-        const doneTasks = tasks.filter(t => t.status === 'done').length;
-        const progress = tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0;
-        return `
-        <div style="margin-bottom:14px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${p.title}</span>
-                <span style="font-size:12px;font-weight:700;color:var(--primary)">${progress}%</span>
-            </div>
-            <div class="analytics-bar-track" style="height:10px;">
-                <div class="analytics-bar-fill" style="width:${progress}%;background:linear-gradient(90deg,var(--primary),var(--success));"></div>
-            </div>
-        </div>`;
-    }).join('');
+
+    // Запускаем анимации через requestAnimationFrame
+    requestAnimationFrame(() => {
+        // Прогресс-бары
+        document.querySelectorAll('.anim-bar').forEach(el => {
+            el.style.width = el.dataset.width + '%';
+        });
+        // Столбчатые диаграммы
+        document.querySelectorAll('[data-height]').forEach(el => {
+            el.style.height = el.dataset.height + 'px';
+        });
+    });
 }
 
 function renderDonut(svgId, legendId, data, total) {

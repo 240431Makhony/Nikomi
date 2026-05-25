@@ -1962,3 +1962,26 @@ body.dark .notif-btn { background: #1E2130 !important; }
     outline: 2px dashed var(--primary);
     outline-offset: -2px;
 }
+
+/* ===== ANALYTICS ANIMATIONS ===== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-card {
+    animation: fadeInUp 0.4s ease both;
+}
+
+.analytics-stat-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.analytics-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(58,176,168,0.15);
+}
+
+/* Плавное заполнение прогресс-баров */
+.analytics-bar-fill {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
