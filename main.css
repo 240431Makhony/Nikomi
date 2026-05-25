@@ -689,6 +689,19 @@ body.dark .analytics-bar-track { background: #2A2D3A; }
 
 /* ===== PROJECT CARD IMPROVED ===== */
 .project-card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px; }
+.project-card-emoji {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
 .project-card-actions { display:flex; gap:4px; opacity:0; transition:opacity 0.2s; }
 .project-card:hover .project-card-actions { opacity:1; }
 .project-card-action-btn {
@@ -874,6 +887,12 @@ body.dark .pers-notif-close:hover { color: #FFFFFF; }
     margin-bottom: 4px;
     display: inline-block;
 }
+.task-project-emoji,
+.filter-project-emoji {
+    margin-right: 4px;
+    font-size: 12px;
+    line-height: 1;
+}
 
 /* Review section */
 .review-task-card {
@@ -908,6 +927,26 @@ body.dark .pers-notif-close:hover { color: #FFFFFF; }
 }
 .team-project-nav-item:hover { background: rgba(58,176,168,0.08); color: var(--primary); }
 .team-project-nav-item.active { background: rgba(58,176,168,0.12); color: var(--primary); font-weight: 600; }
+.project-nav-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.dashboard-project-emoji {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
 
 /* Кнопка отправки на проверку */
 .review-send-btn {

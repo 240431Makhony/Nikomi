@@ -155,6 +155,8 @@ function closeModal(id) {
         document.getElementById('projectName').value = ''; 
         document.getElementById('projectDesc').value = ''; 
         document.getElementById('projectStatus').value = 'active';
+        document.getElementById('projectEmoji').value = '📁';
+        document.getElementById('projectEmojiBtn').textContent = '📁';
         document.getElementById('aiModalDecomposeInput').value = '';
         const aiResult = document.getElementById('aiModalResult');
         if (aiResult) aiResult.style.display = 'none';
@@ -222,6 +224,78 @@ function openTaskModalForProject(status) {
     openModal('taskModal');
 }
 
+// ===== EMOJI PICKER =====
+const EMOJI_LIST = [
+    '📁','📂','🗂️','📋','📌','📍','🗒️','📝','✏️','🖊️',
+    '💼','🎯','🚀','⭐','🌟','💡','🔥','⚡','🎨','🎭',
+    '🏠','🏡','🏢','🏗️','🏋️','💪','🎮','🎵','🎬','📸',
+    '🌱','🌿','🌸','🌺','🍀','🦋','🐾','🐶','🐱','🦁',
+    '💰','💳','🧾','📊','📈','📉','🔑','🔒','🛡️','⚙️',
+    '🚗','✈️','🚂','🚢','🏖️','🏔️','🌍','🗺️','🧭','🎒',
+    '🍕','🍔','☕','🍰','🎂','🥗','🍱','🛒','🧹','🧺',
+    '❤️','💙','💚','💛','🧡','💜','🖤','🤍','💯','✅',
+    '📱','💻','🖥️','⌨️','🖱️','📡','🔭','🔬','💊','🩺',
+    '🎓','📚','🏫','✍️','🧠','💭','🗣️','👥','🤝','🏆',
+];
+
+let _emojiTargetBtn = null;
+let _emojiTargetInput = null;
+
+function openEmojiPicker(btnId, inputId) {
+    const picker = document.getElementById('emojiPickerDropdown');
+    const btn = document.getElementById(btnId);
+
+    // Закрываем если уже открыт для этой кнопки
+    if (picker.style.display !== 'none' && _emojiTargetBtn === btnId) {
+        picker.style.display = 'none';
+        return;
+    }
+
+    _emojiTargetBtn = btnId;
+    _emojiTargetInput = inputId;
+
+    // Заполняем эмодзи
+    const grid = document.getElementById('emojiPickerGrid');
+    grid.innerHTML = EMOJI_LIST.map(e => `
+        <button onclick="selectEmoji('${e}')" style="font-size:22px;width:32px;height:32px;border:none;background:none;cursor:pointer;border-radius:6px;transition:background 0.15s;display:flex;align-items:center;justify-content:center;"
+            onmouseover="this.style.background='rgba(58,176,168,0.12)'" onmouseout="this.style.background='none'">${e}</button>
+    `).join('');
+
+    // Позиционируем под кнопкой
+    const rect = btn.getBoundingClientRect();
+    picker.style.display = 'block';
+    let left = rect.left;
+    if (left + 300 > window.innerWidth - 8) left = window.innerWidth - 308;
+    picker.style.top = (rect.bottom + 6) + 'px';
+    picker.style.left = left + 'px';
+
+    // Закрываем при клике вне
+    setTimeout(() => {
+        document.addEventListener('click', function closePicker(e) {
+            if (!picker.contains(e.target) && e.target.id !== btnId) {
+                picker.style.display = 'none';
+                document.removeEventListener('click', closePicker);
+            }
+        });
+    }, 50);
+}
+
+function selectEmoji(emoji) {
+    if (_emojiTargetBtn) {
+        const btn = document.getElementById(_emojiTargetBtn);
+        if (btn) btn.textContent = emoji;
+    }
+    if (_emojiTargetInput) {
+        const input = document.getElementById(_emojiTargetInput);
+        if (input) input.value = emoji;
+    }
+    document.getElementById('emojiPickerDropdown').style.display = 'none';
+}
+
+function getProjectEmoji(project) {
+    return project?.emoji || '📁';
+}
+
 // ===== BUTTON LOADING STATE =====
 function setBtnLoading(btn, text = 'Сохраняем...') {
     if (!btn) return;
@@ -262,6 +336,7 @@ async function saveProject() {
             status: document.getElementById('projectStatus').value,
             start_date: document.getElementById('projectStartDate').value || null,
             deadline: document.getElementById('projectDeadline').value || null,
+            emoji: document.getElementById('projectEmoji')?.value || '📁',
         });
 
         if (!result.success) { setBtnDone(btn, 'Создать проект'); alert('Ошибка: ' + result.error); return; }
@@ -322,6 +397,7 @@ function renderProjects() {
         const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
         const members = p.members || [];
         const isOwner = p.owner_id === state.user?.id;
+        const projectEmoji = getProjectEmoji(p);
 
         // Бейдж роли
         const roleBadge = isOwner
@@ -368,6 +444,7 @@ function renderProjects() {
         card.className = 'project-card';
         card.innerHTML = `
             <div class="project-card-header">
+                <div class="project-card-emoji" title="Эмодзи проекта">${projectEmoji}</div>
                 <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;">
                     <div class="project-card-title">${p.title}</div>
                     ${roleBadge}
@@ -412,7 +489,7 @@ function showProjectDetailModal(id) {
     const done = tasks.filter(t => t.status === 'done').length;
     const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
 
-    document.getElementById('pdTitle').textContent = p.title;
+    document.getElementById('pdTitle').textContent = `${getProjectEmoji(p)} ${p.title}`;
     document.getElementById('pdDesc').textContent = p.description || 'Нет описания';
     document.getElementById('pdStatus').className = `project-status ${p.status}`;
     document.getElementById('pdStatus').textContent = statusLabel(p.status);
@@ -465,6 +542,8 @@ function openEditProjectModal(id) {
     document.getElementById('editProjectStart').value = p.start_date || '';
     document.getElementById('editProjectDeadline').value = p.deadline || '';
     document.getElementById('editProjectStatus').value = p.status;
+    document.getElementById('editProjectEmoji').value = getProjectEmoji(p);
+    document.getElementById('editProjectEmojiBtn').textContent = getProjectEmoji(p);
 
     // Показываем участников
     renderEditMembersList(p.members || []);
@@ -561,6 +640,7 @@ async function saveEditProject() {
         start_date: document.getElementById('editProjectStart').value || null,
         deadline: document.getElementById('editProjectDeadline').value || null,
         status: document.getElementById('editProjectStatus').value,
+        emoji: document.getElementById('editProjectEmoji')?.value || '📁',
         members: p.members || []  // сохраняем участников в БД
     };
 
@@ -611,7 +691,7 @@ function openProjectDetail(id) {
     window.currentProjectId = id;
     const p = state.projects.find(x => x.id === id);
     if (!p) return;
-    document.getElementById('detailProjectTitle').textContent = p.title;
+    document.getElementById('detailProjectTitle').textContent = `${getProjectEmoji(p)} ${p.title}`;
     document.getElementById('detailProjectDesc').textContent = p.description || '';
     document.getElementById('detailProjectStatus').className = `project-status ${p.status}`;
     document.getElementById('detailProjectStatus').textContent = statusLabel(p.status);
@@ -721,7 +801,7 @@ function updateTeamProjectsSidebar() {
         list.innerHTML = teamProjects.map(p => `
             <li class="nav-item">
                 <a href="#" class="nav-link team-project-nav-item" onclick="openProjectDetail('${p.id}')">
-                    <i class="nav-icon fas fa-users" style="font-size:13px;"></i>
+                    <span class="nav-icon project-nav-emoji">${getProjectEmoji(p)}</span>
                     <span class="nav-text">${p.title}</span>
                 </a>
             </li>
@@ -1107,7 +1187,7 @@ function renderProjectFilterBtns() {
     if (!container) return;
     container.innerHTML = state.projects.map(p => `
         <button class="filter-btn" data-project="${p.id}" onclick="setTaskFilter('project','${p.id}',this)">
-            <i class="fas fa-folder" style="font-size:10px;"></i>${p.title}
+            <span class="filter-project-emoji">${getProjectEmoji(p)}</span>${p.title}
         </button>
     `).join('');
 }
@@ -1161,7 +1241,7 @@ function createTaskCard(task, inProject) {
     // Название проекта (показываем в общем списке задач)
     const project = state.projects.find(p => p.id === task.project_id);
     const projectLabel = (!inProject && project)
-        ? `<div class="task-project-label"><i class="fas fa-folder" style="margin-right:3px;font-size:9px;"></i>${project.title}</div>`
+        ? `<div class="task-project-label"><span class="task-project-emoji">${getProjectEmoji(project)}</span>${project.title}</div>`
         : '';
 
     const reviewBtn = canSendTaskToReview(task)
@@ -1629,8 +1709,9 @@ function renderDashboard() {
         item.className = 'project-item';
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--bg-main);border-radius:10px;border:1px solid var(--border);margin-bottom:10px;cursor:pointer;';
         item.innerHTML = `
-            <div style="flex:1;">
-                <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${p.title}</div>
+            <div class="dashboard-project-emoji">${getProjectEmoji(p)}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:600;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.title}</div>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
                     <span class="progress-text">${progress}%</span>
