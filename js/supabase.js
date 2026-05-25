@@ -237,6 +237,17 @@ export async function deleteNote(id) {
 // INVITATIONS
 // ============================================
 
+export async function getAllProfiles() {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, avatar_url');
+    if (error) {
+        console.warn('getAllProfiles error (возможно RLS):', error.message);
+        return [];
+    }
+    return data || [];
+}
+
 export async function checkUserByEmail(email) {
     // Используем maybeSingle вместо single — не падает если 0 результатов
     const { data, error } = await supabase

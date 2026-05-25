@@ -6,12 +6,13 @@ import {
     getProjects, createProject as sbCreateProject, updateProject as sbUpdateProject, deleteProject as sbDeleteProject,
     getTasks, createTask as sbCreateTask, updateTask as sbUpdateTask, deleteTask as sbDeleteTask,
     getNotes, createNote as sbCreateNote, deleteNote as sbDeleteNote,
-    inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile
+    inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile, getAllProfiles
 } from './js/supabase.js';
 
 let state = {
     user: null,
     profile: null,
+    profiles: [], // все профили для отображения имён
     projects: [],
     tasks: [],
     notes: []
@@ -41,15 +42,17 @@ async function init() {
     state.profile = await getProfile(user.id);
 
     // Загружаем данные параллельно
-    const [projects, tasks, notes] = await Promise.all([
+    const [projects, tasks, notes, profiles] = await Promise.all([
         getProjects(),
         getTasks(),
-        getNotes()
+        getNotes(),
+        getAllProfiles()
     ]);
 
     state.projects = projects || [];
     state.tasks = tasks || [];
     state.notes = notes || [];
+    state.profiles = profiles || [];
 
     updateUserUI();
     updateBadges();
@@ -316,15 +319,31 @@ function renderProjects() {
         const done = tasks.filter(t => t.status === 'done').length;
         const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
         const members = p.members || [];
+        const isOwner = p.owner_id === state.user?.id;
+
+        // Бейдж роли
+        const roleBadge = isOwner
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(58,176,168,0.12);color:var(--primary);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;"><i class="fas fa-crown" style="font-size:9px;"></i>Мой проект</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(167,139,250,0.12);color:#7C3AED;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;"><i class="fas fa-users" style="font-size:9px;"></i>Участник</span>`;
+
+        // Создатель (для чужих проектов)
+        let creatorHtml = '';
+        if (!isOwner) {
+            const ownerName = getProfileName(p.owner_id) || 'Создатель';
+            const ownerAvatar = getProfileAvatar(p.owner_id);
+            const avatarEl = ownerAvatar
+                ? `<img src="${ownerAvatar}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;">`
+                : `<i class="fas fa-user-tie" style="font-size:10px;"></i>`;
+            creatorHtml = `<span class="project-card-meta-item"><span style="display:inline-flex;align-items:center;gap:4px;">${avatarEl}Создал: ${ownerName}</span></span>`;
+        }
 
         // Проверяем дедлайн
         let deadlineHtml = '';
-        let deadlineClass = '';
         if (p.deadline) {
             const daysLeft = Math.ceil((new Date(p.deadline) - new Date()) / (1000*60*60*24));
             const isNear = daysLeft <= 3 && daysLeft >= 0;
             const isOver = daysLeft < 0;
-            deadlineClass = isNear ? 'deadline-near' : (isOver ? 'deadline-near' : '');
+            const deadlineClass = (isNear || isOver) ? 'deadline-near' : '';
             const icon = isOver ? 'fa-exclamation-circle' : 'fa-flag';
             const text = isOver ? `Просрочен (${Math.abs(daysLeft)}д)` : (isNear ? `${daysLeft}д до дедлайна` : formatDate(p.deadline));
             deadlineHtml = `<span class="project-card-meta-item ${deadlineClass}"><i class="fas ${icon}"></i>${text}</span>`;
@@ -336,18 +355,26 @@ function renderProjects() {
               + (members.length > 4 ? `<div class="member-avatar more">+${members.length-4}</div>` : '')
             : `<span style="font-size:12px;color:var(--text-secondary);">Нет участников</span>`;
 
+        // Кнопки редактирования — только для владельца
+        const actionBtns = isOwner ? `
+            <div class="project-card-actions">
+                <button class="project-card-action-btn" title="Редактировать" onclick="event.stopPropagation();openEditProjectModal('${p.id}')"><i class="fas fa-edit"></i></button>
+                <button class="project-card-action-btn danger" title="Удалить" onclick="event.stopPropagation();deleteProjectDirect('${p.id}')"><i class="fas fa-trash"></i></button>
+            </div>` : '';
+
         const card = document.createElement('div');
         card.className = 'project-card';
         card.innerHTML = `
             <div class="project-card-header">
-                <div class="project-card-title">${p.title}</div>
-                <div class="project-card-actions">
-                    <button class="project-card-action-btn" title="Редактировать" onclick="event.stopPropagation();openEditProjectModal('${p.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="project-card-action-btn danger" title="Удалить" onclick="event.stopPropagation();deleteProjectDirect('${p.id}')"><i class="fas fa-trash"></i></button>
+                <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;">
+                    <div class="project-card-title">${p.title}</div>
+                    ${roleBadge}
                 </div>
+                ${actionBtns}
             </div>
             <div class="project-card-desc">${p.description || 'Нет описания'}</div>
             <div class="project-card-meta">
+                ${creatorHtml}
                 ${p.start_date ? `<span class="project-card-meta-item"><i class="fas fa-play"></i>${formatDate(p.start_date)}</span>` : ''}
                 ${deadlineHtml}
                 <span class="project-card-meta-item"><i class="fas fa-tasks"></i>${tasks.length} задач</span>
@@ -586,9 +613,17 @@ function openProjectDetail(id) {
     document.getElementById('detailProjectDesc').textContent = p.description || '';
     document.getElementById('detailProjectStatus').className = `project-status ${p.status}`;
     document.getElementById('detailProjectStatus').textContent = statusLabel(p.status);
-    document.getElementById('detailProjectDate').textContent = 'Создан: ' + formatDate(p.created_at || p.createdAt);
 
     const isOwner = p.owner_id === state.user?.id;
+
+    // Показываем создателя если это не мой проект
+    const dateEl = document.getElementById('detailProjectDate');
+    if (isOwner) {
+        dateEl.textContent = 'Создан: ' + formatDate(p.created_at || p.createdAt);
+    } else {
+        const ownerName = getProfileName(p.owner_id) || 'другой пользователь';
+        dateEl.innerHTML = `Создан: ${formatDate(p.created_at || p.createdAt)} &nbsp;·&nbsp; <span style="color:var(--primary);font-weight:600;"><i class="fas fa-crown" style="font-size:10px;margin-right:3px;"></i>Создатель: ${ownerName}</span>`;
+    }
 
     // Кнопка "Добавить задачу" — только для владельца
     const addTaskBtn = document.querySelector('#project-detail-section .section-header .btn-primary');
@@ -618,7 +653,6 @@ async function saveTask() {
     setBtnLoading(btn, 'Создаём...');
 
     const assigneeVal = document.getElementById('taskAssignee')?.value?.trim() || null;
-    console.log('saveTask assignee value:', assigneeVal);
 
     const taskData = {
         title,
@@ -629,7 +663,6 @@ async function saveTask() {
         project_id: document.getElementById('taskProject').value || null,
         assignee: assigneeVal,
     };
-    console.log('saveTask data:', taskData);
 
     const result = await sbCreateTask(taskData);
 
@@ -740,23 +773,29 @@ function canChangeTaskStatus(task, status) {
     const myEmail = state.user?.email;
     const project = getTaskProject(task);
 
-    // Владелец задачи — полные права всегда
+    // Владелец задачи — полные права
     if (task?.owner_id === myId) return true;
 
     // Владелец проекта — полные права
     if (project?.owner_id === myId) return true;
 
-    // Нет проекта — только владелец задачи (уже проверили выше)
+    // Нет проекта — только владелец задачи (уже проверили)
     if (!project) return false;
 
-    // Участник: может отправить на проверку
-    if (status === 'review') return canSendTaskToReview(task);
+    // Участник проекта — может двигать задачи кроме "Сделано"
+    const isProjectMember = project.members && project.members.includes(myEmail);
+    const isAssigned = task?.assignee === myEmail;
 
-    // Участник: не может сам ставить "Сделано"
+    if (!isProjectMember && !isAssigned) return false;
+
+    // Участник не может сам ставить "Сделано" — только через проверку
     if (status === 'done') return false;
 
-    // Участник назначенный на задачу — может менять todo/inprogress
-    return isAssignedToMe(task) || task?.assignee === myEmail;
+    // Участник может отправить на проверку только назначенную ему задачу
+    if (status === 'review') return isAssigned || isProjectMember;
+
+    // todo/inprogress — любой участник проекта
+    return true;
 }
 
 function canSeeReviewNote(task) {
@@ -775,20 +814,28 @@ async function updateTaskAndLocal(task, updates) {
 
 function scheduleWorkspaceRefresh() {
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => refreshWorkspaceData(), 350);
+    // 2 секунды задержки — даём время локальному рендеру отработать, не мигаем
+    refreshTimer = setTimeout(() => {
+        if (!draggedTaskId) refreshWorkspaceData();
+    }, 2000);
+}
 }
 
 async function refreshWorkspaceData() {
     if (!state.user || document.hidden) return;
-    const [projects, tasks, notes] = await Promise.all([
+    if (draggedTaskId) return;
+
+    const [projects, tasks, notes, profiles] = await Promise.all([
         getProjects(),
         getTasks(),
-        getNotes()
+        getNotes(),
+        getAllProfiles()
     ]);
 
     state.projects = projects || [];
     state.tasks = tasks || [];
     state.notes = notes || [];
+    state.profiles = profiles || [];
 
     updateBadges();
     const activeSection = document.querySelector('.content-section.active')?.id;
@@ -803,16 +850,20 @@ async function refreshWorkspaceData() {
 }
 
 function setupRealtimeRefresh() {
+    // Realtime — только обновляем данные в фоне, не перерисовываем если идёт drag
     supabase
         .channel('workspace-live-refresh')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleWorkspaceRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+            if (!draggedTaskId) scheduleWorkspaceRefresh();
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleWorkspaceRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, scheduleWorkspaceRefresh)
         .subscribe();
 
+    // Фоновый рефреш каждые 30 секунд (не 12)
     setInterval(() => {
-        if (!document.hidden) refreshWorkspaceData();
-    }, 12000);
+        if (!document.hidden && !draggedTaskId) refreshWorkspaceData();
+    }, 30000);
 }
 
 // ===== SEND TO REVIEW =====
@@ -1136,6 +1187,7 @@ function setupDropZone(container, status, projectId) {
             return;
         }
         draggedTaskId = null;
+        // Небольшая задержка чтобы realtime не перебил локальный рендер
         if (projectId) renderKanban(projectId);
         else renderAllTasks();
         updateBadges();
@@ -1875,6 +1927,21 @@ function taskStatusLabel(s) {
 }
 function priorityLabel(p) {
     return { low:'Низкий', medium:'Средний', high:'Высокий' }[p] || p;
+}
+
+// Получить имя пользователя по id из загруженных профилей
+function getProfileName(userId) {
+    if (!userId) return '';
+    const profile = state.profiles?.find(p => p.id === userId);
+    if (!profile) return '';
+    return profile.name || profile.email?.split('@')[0] || '';
+}
+
+// Получить аватарку пользователя по id
+function getProfileAvatar(userId) {
+    if (!userId) return null;
+    const profile = state.profiles?.find(p => p.id === userId);
+    return profile?.avatar_url || null;
 }
 function formatDate(d) {
     if (!d) return '';
