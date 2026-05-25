@@ -27,10 +27,9 @@ export async function signUp(email, password, name, role) {
             id: data.user.id,
             name: name || email.split('@')[0],
             email: email,
-            role: role || 'user',
+            role: 'member', // всегда member — реальная роль определяется через проекты
         }, { onConflict: 'id', ignoreDuplicates: true });
     } catch (e) {
-        // Игнорируем ошибку — триггер мог уже создать профиль
         console.warn('Profile upsert warning:', e);
     }
 
@@ -239,12 +238,17 @@ export async function deleteNote(id) {
 // ============================================
 
 export async function checkUserByEmail(email) {
+    // Используем maybeSingle вместо single — не падает если 0 результатов
     const { data, error } = await supabase
         .from('profiles')
         .select('id, name, email')
-        .eq('email', email)
-        .single();
-    if (error || !data) return { exists: false };
+        .eq('email', email.toLowerCase().trim())
+        .maybeSingle();
+    if (error) {
+        console.error('checkUserByEmail error:', error);
+        return { exists: false };
+    }
+    if (!data) return { exists: false };
     return { exists: true, user: data };
 }
 
