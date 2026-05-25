@@ -19,7 +19,7 @@
     <!-- ===== SIDEBAR ===== -->
     <aside class="main-sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="sidebar-logo">
+            <div class="sidebar-logo" onclick="navigate('dashboard')" style="cursor:pointer;" title="На главную">
                 <img src="pers/iconka.png" alt="Nikomi" class="sidebar-logo-img">
                 <span class="sidebar-logo-text">Nikomi</span>
             </div>
@@ -690,6 +690,27 @@
                     <button class="btn-status todo" onclick="changeTaskStatus(window.currentTaskId,'todo')">В планах</button>
                     <button class="btn-status inprogress" onclick="changeTaskStatus(window.currentTaskId,'inprogress')">В процессе</button>
                     <button class="btn-status done" onclick="changeTaskStatus(window.currentTaskId,'done')">Сделано</button>
+                </div>
+            </div>
+
+            <!-- Вложения -->
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+                        <i class="fas fa-paperclip" style="color:var(--primary);"></i> Вложения
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="addAttachmentLink()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-secondary);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+                            <i class="fas fa-link"></i> Ссылка
+                        </button>
+                        <label style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-secondary);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+                            <i class="fas fa-upload"></i> Файл
+                            <input type="file" id="attachmentFileInput" style="display:none;" onchange="uploadAttachmentFile(this)">
+                        </label>
+                    </div>
+                </div>
+                <div id="taskAttachmentsList" style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:12px;">Нет вложений</div>
                 </div>
             </div>
         </div>

@@ -1035,15 +1035,11 @@ body.dark .pers-notif-close:hover { color: #FFFFFF; }
 
 /* Calendar day popup */
 .cal-day-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     background: var(--card);
     border-radius: 18px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.2);
     z-index: 2000;
-    width: 340px;
+    max-width: 340px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;

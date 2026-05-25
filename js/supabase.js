@@ -290,3 +290,80 @@ export async function inviteMember(projectId, email) {
     if (error) return { success: false, error: error.message };
     return { success: true, invitation: data };
 }
+
+// ============================================
+// TASK ATTACHMENTS
+// ============================================
+
+export async function getTaskAttachments(taskId) {
+    const { data, error } = await supabase
+        .from('task_attachments')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+    if (error) { console.error(error); return []; }
+    return data || [];
+}
+
+export async function addTaskLink(taskId, name, url) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+    const { data, error } = await supabase
+        .from('task_attachments')
+        .insert({ task_id: taskId, owner_id: user.id, type: 'link', name, url })
+        .select().single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, attachment: data };
+}
+
+export async function uploadTaskFile(taskId, file) {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Не авторизован' };
+
+    const ext = file.name.split('.').pop();
+    const path = `${user.id}/${taskId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('task-attachments')
+        .upload(path, file, { upsert: false });
+
+    if (uploadError) return { success: false, error: uploadError.message };
+
+    const { data: urlData } = supabase.storage
+        .from('task-attachments')
+        .getPublicUrl(path);
+
+    // Если бакет приватный — используем signed URL
+    let url = urlData?.publicUrl;
+    if (!url) {
+        const { data: signed } = await supabase.storage
+            .from('task-attachments')
+            .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 год
+        url = signed?.signedUrl;
+    }
+
+    const { data, error } = await supabase
+        .from('task_attachments')
+        .insert({
+            task_id: taskId,
+            owner_id: user.id,
+            type: 'file',
+            name: file.name,
+            url,
+            size: file.size,
+            mime_type: file.type
+        })
+        .select().single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, attachment: data };
+}
+
+export async function deleteTaskAttachment(id) {
+    const { error } = await supabase
+        .from('task_attachments')
+        .delete()
+        .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}

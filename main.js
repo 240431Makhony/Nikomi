@@ -6,7 +6,8 @@ import {
     getProjects, createProject as sbCreateProject, updateProject as sbUpdateProject, deleteProject as sbDeleteProject,
     getTasks, createTask as sbCreateTask, updateTask as sbUpdateTask, deleteTask as sbDeleteTask,
     getNotes, createNote as sbCreateNote, deleteNote as sbDeleteNote,
-    inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile, getAllProfiles
+    inviteMember, checkUserByEmail, updateProfile as sbUpdateProfile, getAllProfiles,
+    getTaskAttachments, addTaskLink, uploadTaskFile, deleteTaskAttachment
 } from './js/supabase.js';
 
 let state = {
@@ -1235,6 +1236,8 @@ function showTaskDetail(id) {
     }
 
     openModal('taskDetailModal');
+    // Загружаем вложения
+    loadTaskAttachments(id);
 }
 
 async function changeTaskStatus(id, status) {
@@ -1349,6 +1352,106 @@ async function saveEditTask(taskId) {
     }, 1000);
 }
 
+// ===== TASK ATTACHMENTS =====
+async function loadTaskAttachments(taskId) {
+    const container = document.getElementById('taskAttachmentsList');
+    if (!container) return;
+    container.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:12px;"><i class="fas fa-spinner fa-spin"></i></div>`;
+
+    const attachments = await getTaskAttachments(taskId);
+
+    if (!attachments.length) {
+        container.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:12px;">Нет вложений</div>`;
+        return;
+    }
+
+    container.innerHTML = attachments.map(a => {
+        const icon = a.type === 'link' ? 'fa-link' : getFileIcon(a.mime_type);
+        const sizeText = a.size ? formatFileSize(a.size) : '';
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-main);border-radius:10px;border:1px solid var(--border);">
+            <div style="width:32px;height:32px;border-radius:8px;background:rgba(58,176,168,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas ${icon}" style="color:var(--primary);font-size:13px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <a href="${a.url}" target="_blank" style="font-size:13px;font-weight:600;color:var(--text-primary);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-primary)'">${escapeHtml(a.name)}</a>
+                ${sizeText ? `<div style="font-size:11px;color:var(--text-secondary);">${sizeText}</div>` : ''}
+            </div>
+            <button onclick="removeAttachment('${a.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;border-radius:6px;font-size:12px;flex-shrink:0;" title="Удалить" onmouseover="this.style.color='#c62828'" onmouseout="this.style.color='var(--text-secondary)'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    }).join('');
+}
+
+function getFileIcon(mimeType) {
+    if (!mimeType) return 'fa-file';
+    if (mimeType.startsWith('image/')) return 'fa-image';
+    if (mimeType.startsWith('video/')) return 'fa-video';
+    if (mimeType.includes('pdf')) return 'fa-file-pdf';
+    if (mimeType.includes('word') || mimeType.includes('document')) return 'fa-file-word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-file-excel';
+    if (mimeType.includes('zip') || mimeType.includes('rar')) return 'fa-file-archive';
+    return 'fa-file';
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+}
+
+async function addAttachmentLink() {
+    const name = prompt('Название ссылки:');
+    if (!name) return;
+    const url = prompt('URL ссылки:');
+    if (!url) return;
+
+    const taskId = window.currentTaskId;
+    const result = await addTaskLink(taskId, name, url);
+    if (result.success) {
+        loadTaskAttachments(taskId);
+        showPersNotif('success', 'Ссылка добавлена! 🔗');
+    } else {
+        alert('Ошибка: ' + result.error);
+    }
+}
+
+async function uploadAttachmentFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const maxSize = 10 * 1024 * 1024; // 10 МБ
+    if (file.size > maxSize) {
+        alert('Файл слишком большой. Максимум 10 МБ.');
+        input.value = '';
+        return;
+    }
+
+    const taskId = window.currentTaskId;
+    showPersNotif('info', 'Загружаем файл...');
+
+    const result = await uploadTaskFile(taskId, file);
+    input.value = '';
+
+    if (result.success) {
+        loadTaskAttachments(taskId);
+        showPersNotif('success', `Файл "${file.name}" загружен! 📎`);
+    } else {
+        alert('Ошибка загрузки: ' + result.error);
+    }
+}
+
+async function removeAttachment(id) {
+    if (!confirm('Удалить вложение?')) return;
+    const result = await deleteTaskAttachment(id);
+    if (result.success) {
+        loadTaskAttachments(window.currentTaskId);
+    } else {
+        alert('Ошибка: ' + result.error);
+    }
+}
+
 // ===== NOTES =====
 async function saveNote() {
     const title = document.getElementById('noteTitle').value.trim();
@@ -1460,7 +1563,7 @@ function renderCalendar() {
         const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
         const hasTasks = allDayTasks.length > 0;
 
-        html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasTasks ? 'has-tasks' : ''}" onclick="openCalendarDay('${iso}')">
+        html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasTasks ? 'has-tasks' : ''}" onclick="openCalendarDay('${iso}', event)">
             <span class="cal-day-num">${d}</span>
             <div class="cal-tasks-list">
                 ${dayTasks.map(t => `
@@ -1479,20 +1582,22 @@ function renderCalendar() {
     container.innerHTML = html;
 }
 
-function openCalendarDay(iso) {
+function openCalendarDay(iso, event) {
     const dayTasks = state.tasks.filter(t => t.due_date === iso);
     const date = new Date(iso + 'T00:00:00');
     const label = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
     // Удаляем старый попап если есть
     const old = document.getElementById('calDayPopup');
-    if (old) old.remove();
+    if (old) { old.remove(); return; }
 
-    if (!dayTasks.length) return; // нечего показывать
+    if (!dayTasks.length) return;
 
     const popup = document.createElement('div');
     popup.id = 'calDayPopup';
     popup.className = 'cal-day-popup';
+    popup.style.position = 'fixed';
+    popup.style.zIndex = '2000';
     popup.innerHTML = `
         <div class="cal-day-popup-header">
             <span class="cal-day-popup-title"><i class="fas fa-calendar-day"></i> ${label}</span>
@@ -1520,6 +1625,30 @@ function openCalendarDay(iso) {
         </div>
     `;
     document.body.appendChild(popup);
+
+    // Позиционируем рядом с кликнутой ячейкой
+    const popupW = 340;
+    const popupH = Math.min(popup.offsetHeight || 400, window.innerHeight * 0.8);
+    const src = event?.currentTarget || event?.target;
+    let x, y;
+
+    if (src) {
+        const rect = src.getBoundingClientRect();
+        x = rect.right + 8;
+        y = rect.top;
+        // Не выходим за правый край
+        if (x + popupW > window.innerWidth - 8) x = rect.left - popupW - 8;
+        // Не выходим за нижний край
+        if (y + popupH > window.innerHeight - 8) y = window.innerHeight - popupH - 8;
+        if (y < 8) y = 8;
+    } else {
+        x = (window.innerWidth - popupW) / 2;
+        y = (window.innerHeight - popupH) / 2;
+    }
+
+    popup.style.left = x + 'px';
+    popup.style.top = y + 'px';
+    popup.style.width = popupW + 'px';
 
     // Закрываем при клике вне
     setTimeout(() => {
@@ -2915,5 +3044,6 @@ Object.assign(window, {
     runAiDecompose, applyDecomposition, switchAiMode,
     runAiDayPlan, runAiDecomposeInModal,
     openNotifPanel,
+    addAttachmentLink, uploadAttachmentFile, removeAttachment,
 });
 
