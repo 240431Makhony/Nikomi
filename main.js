@@ -819,7 +819,6 @@ function scheduleWorkspaceRefresh() {
         if (!draggedTaskId) refreshWorkspaceData();
     }, 2000);
 }
-}
 
 async function refreshWorkspaceData() {
     if (!state.user || document.hidden) return;
