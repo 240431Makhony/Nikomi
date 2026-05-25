@@ -12,12 +12,28 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ============================================
 
 export async function signUp(email, password, name, role) {
+    // 1. Регистрируем пользователя
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { name, role } }
     });
     if (error) return { success: false, error: error.message };
+    if (!data.user) return { success: false, error: 'Не удалось создать пользователя' };
+
+    // 2. Создаём профиль вручную (на случай если триггер не работает)
+    try {
+        await supabase.from('profiles').upsert({
+            id: data.user.id,
+            name: name || email.split('@')[0],
+            email: email,
+            role: role || 'user',
+        }, { onConflict: 'id', ignoreDuplicates: true });
+    } catch (e) {
+        // Игнорируем ошибку — триггер мог уже создать профиль
+        console.warn('Profile upsert warning:', e);
+    }
+
     return { success: true, user: data.user };
 }
 
