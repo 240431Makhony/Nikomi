@@ -1879,9 +1879,72 @@ document.addEventListener('click', e => {
     }
 });
 
-// ===== USER PROFILE CLICK =====
-document.getElementById('userProfileBtn').addEventListener('click', () => navigate('profile'));
-document.getElementById('headerUserBtn').addEventListener('click', () => navigate('profile'));
+// ===== USER PROFILE CLICK — выпадающее меню =====
+document.getElementById('userProfileBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openUserMenu(e.currentTarget);
+});
+document.getElementById('headerUserBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openUserMenu(e.currentTarget);
+});
+
+function openUserMenu(anchor) {
+    const old = document.getElementById('userMenuDropdown');
+    if (old) { old.remove(); return; }
+
+    const menu = document.createElement('div');
+    menu.id = 'userMenuDropdown';
+    menu.className = 'user-menu-dropdown';
+
+    const name = state.profile?.name || state.user?.email?.split('@')[0] || 'Пользователь';
+    const email = state.user?.email || '';
+    const avatarUrl = state.profile?.avatar_url;
+    const avatarEl = avatarUrl
+        ? `<img src="${avatarUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(58,176,168,0.3);">`
+        : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3AB0A8,#2A9D95);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;"><i class="fas fa-user"></i></div>`;
+
+    menu.innerHTML = `
+        <div class="user-menu-header">
+            ${avatarEl}
+            <div style="min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${email}</div>
+            </div>
+        </div>
+        <div class="user-menu-divider"></div>
+        <button class="user-menu-item" onclick="document.getElementById('userMenuDropdown').remove();navigate('profile')">
+            <i class="fas fa-user-circle"></i> Мой профиль
+        </button>
+        <button class="user-menu-item" onclick="document.getElementById('userMenuDropdown').remove();navigate('settings')">
+            <i class="fas fa-cog"></i> Настройки
+        </button>
+        <div class="user-menu-divider"></div>
+        <button class="user-menu-item user-menu-item-danger" onclick="document.getElementById('userMenuDropdown').remove();document.getElementById('logoutBtn').click()">
+            <i class="fas fa-sign-out-alt"></i> Выйти
+        </button>
+    `;
+
+    document.body.appendChild(menu);
+
+    // Позиционируем под anchor
+    const rect = anchor.getBoundingClientRect();
+    const menuW = 220;
+    let left = rect.left;
+    if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+    menu.style.top = (rect.bottom + 8) + 'px';
+    menu.style.left = left + 'px';
+
+    // Закрываем при клике вне
+    setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    }, 50);
+}
 
 // ===== AVATAR PREVIEW IN SETTINGS =====
 document.addEventListener('input', e => {

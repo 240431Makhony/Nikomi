@@ -72,7 +72,7 @@ body.main-app {
 }
 
 .sidebar-logo { display:flex; align-items:center; gap:10px; }
-.sidebar-logo-img { width:36px; height:36px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+.sidebar-logo-img { width:36px; height:36px; border-radius:10px; object-fit:contain; flex-shrink:0; }
 .sidebar-logo-text { font-size:18px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; white-space:nowrap; transition:all 0.3s; }
 
 .sidebar-toggle {
@@ -1840,4 +1840,72 @@ body.dark .notif-btn { background: #1E2130 !important; }
 /* Плавный переход состояний кнопки */
 .btn-primary {
     transition: all 0.2s, background 0.3s !important;
+}
+
+/* ===== USER MENU DROPDOWN ===== */
+.user-menu-dropdown {
+    position: fixed;
+    z-index: 3000;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+    width: 220px;
+    overflow: hidden;
+    animation: modalIn 0.15s ease;
+}
+
+.user-menu-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(58,176,168,0.06), transparent);
+}
+
+.user-menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
+.user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: left;
+    transition: background 0.15s;
+    font-family: 'DM Sans', sans-serif;
+}
+.user-menu-item:hover {
+    background: rgba(58,176,168,0.08);
+    color: var(--primary);
+}
+.user-menu-item i {
+    width: 16px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+.user-menu-item:hover i { color: var(--primary); }
+
+.user-menu-item-danger { color: var(--text-secondary); }
+.user-menu-item-danger:hover {
+    background: rgba(229,115,115,0.08) !important;
+    color: #c62828 !important;
+}
+.user-menu-item-danger:hover i { color: #c62828 !important; }
+
+/* Подсветка кнопки профиля при открытом меню */
+.user-profile:has(+ #userMenuDropdown),
+#headerUserBtn.menu-open {
+    background: rgba(58,176,168,0.08);
 }
