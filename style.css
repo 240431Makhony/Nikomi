@@ -2386,3 +2386,244 @@ a.btn-secondary:hover {
         width: 100%;
     }
 }
+
+/* ===== MOBILE RESPONSIVE — FULL FIX ===== */
+
+/* --- LANDING PAGE MOBILE --- */
+@media (max-width: 600px) {
+    .header {
+        padding: 14px 20px;
+    }
+    .logo-text { font-size: 18px; }
+    .header-buttons { gap: 6px; }
+    .btn-text { padding: 8px 12px; font-size: 13px; }
+    a.btn-primary, .btn-primary { padding: 9px 16px; font-size: 13px; }
+
+    .hero {
+        padding: 24px 20px 48px;
+        gap: 32px;
+        flex-direction: column;
+        text-align: center;
+    }
+    .hero-content {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+    }
+    .hero-title { font-size: 32px !important; line-height: 1.15; }
+    .hero-subtitle { font-size: 15px; margin-bottom: 24px; }
+
+    .phone-mockup { max-width: 260px; }
+    .phone-frame { border-radius: 28px; padding: 8px; }
+    .phone-screen { border-radius: 22px; }
+    .phone-content { padding: 32px 14px 14px; }
+    .phone-title { font-size: 18px; }
+    .task-card { padding: 10px 12px; margin-bottom: 8px; }
+    .task-title { font-size: 12px; }
+
+    .icon-1, .icon-2, .icon-3 { display: none; }
+
+    .features-section {
+        padding: 32px 20px;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .feature-card { padding: 16px 12px; }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-title { font-size: 13px; }
+    .feature-desc { font-size: 11px; }
+
+    .already-logged-in {
+        margin: 0 16px 16px;
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+}
+
+/* --- AUTH PAGES MOBILE (login/register) --- */
+@media (max-width: 600px) {
+    .auth-page {
+        padding: 16px;
+        align-items: flex-start;
+        padding-top: 32px;
+    }
+    .auth-card {
+        padding: 28px 20px;
+        border-radius: 20px;
+        max-width: 100%;
+    }
+    .auth-title { font-size: 22px; }
+    .auth-subtitle { font-size: 13px; margin-bottom: 20px; }
+    .auth-logo { margin-bottom: 20px; }
+    .auth-form-group input { padding: 11px 12px; font-size: 14px; }
+    .btn-auth-primary { padding: 12px; font-size: 14px; }
+    .btn-google { padding: 10px; font-size: 13px; }
+    .auth-footer { font-size: 13px; }
+}
+
+/* --- MAIN APP MOBILE --- */
+@media (max-width: 600px) {
+    /* Header */
+    .main-header {
+        padding: 0 12px;
+        height: 56px;
+    }
+    .breadcrumb-item { font-size: 17px; }
+
+    /* Search hidden on mobile */
+    .search-box { display: none !important; }
+
+    /* Notification + avatar smaller */
+    .notif-btn { width: 34px !important; height: 34px !important; }
+    .user-avatar-small { width: 32px; height: 32px; font-size: 12px; }
+
+    /* Content */
+    .content-wrapper { padding: 14px; }
+
+    /* Section header */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .section-title { font-size: 22px !important; }
+
+    /* Dashboard cards */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .dashboard-card { padding: 16px; }
+
+    /* Kanban — horizontal scroll */
+    .kanban-board {
+        flex-direction: row !important;
+        overflow-x: auto;
+        gap: 12px;
+        padding-bottom: 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .kanban-col {
+        min-width: 240px;
+        flex-shrink: 0;
+    }
+
+    /* Projects grid */
+    .projects-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .project-card { padding: 16px; }
+
+    /* Notes grid */
+    .notes-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* Calendar */
+    .calendar-day {
+        min-height: 52px;
+        padding: 4px;
+        border-radius: 8px;
+    }
+    .cal-day-num { font-size: 11px; }
+    .cal-task-chip { font-size: 8px; padding: 2px 4px; }
+    .calendar-grid { gap: 3px; }
+    .calendar-weekday { font-size: 9px; }
+
+    /* Modals */
+    .modal {
+        max-width: 100% !important;
+        margin: 0 !important;
+        border-radius: 20px 20px 0 0 !important;
+        max-height: 92vh;
+    }
+    .modal-overlay {
+        align-items: flex-end !important;
+    }
+    .modal-body { padding: 16px 18px; }
+    .modal-header { padding: 16px 18px; }
+    .modal-footer { padding: 12px 18px; }
+
+    /* Profile card */
+    .profile-card {
+        flex-direction: column;
+        padding: 20px;
+        gap: 16px;
+    }
+    .profile-avatar { width: 64px; height: 64px; font-size: 24px; }
+
+    /* Analytics */
+    .charts-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    .analytics-stats-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* AI sections */
+    #ai-decompose-section > div,
+    #ai-day-section > div {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    /* Notification panel */
+    .notif-panel {
+        right: 8px;
+        left: 8px;
+        width: auto;
+        top: 64px;
+    }
+
+    /* Cal day popup */
+    .cal-day-popup {
+        width: calc(100vw - 32px);
+        left: 16px;
+        transform: translateY(-50%);
+    }
+
+    /* Sidebar overlay */
+    .main-sidebar {
+        position: fixed;
+        left: -280px;
+        z-index: 500;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+    }
+    .main-sidebar.mobile-open { left: 0; }
+    .mobile-menu-btn { display: block !important; }
+
+    /* Filters wrap */
+    .tasks-filters {
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+    .filter-group + .filter-group {
+        padding-left: 0;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+    }
+
+    /* Buttons in section header */
+    .btn-primary, .btn-secondary-outline {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+    .hero-title { font-size: 44px !important; }
+    .features-section { padding: 40px 32px; }
+    .kanban-board { overflow-x: auto; }
+    .kanban-col { min-width: 220px; }
+    .charts-grid { grid-template-columns: 1fr !important; }
+    .modal { max-width: 90% !important; }
+}

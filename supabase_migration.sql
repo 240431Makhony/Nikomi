@@ -1,69 +1,52 @@
--- Добавить колонку avatar_url в таблицу profiles
--- Выполни этот SQL в Supabase Dashboard → SQL Editor
+-- ============================================
+-- NIKOMI — SQL fixes
+-- Выполни в Supabase Dashboard → SQL Editor
+-- ============================================
 
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-
--- Поля для workflow проверки задач.
--- Заметка review_note используется, когда владелец проекта возвращает задачу на доработку.
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_note TEXT;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_rejected_at TIMESTAMPTZ;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
-
--- Обновить constraint статусов: без этого Supabase отвечает 400
--- "violates check constraint tasks_status_check" при отправке на проверку.
-ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
-ALTER TABLE tasks ADD CONSTRAINT tasks_status_check
-CHECK (status IN ('todo', 'inprogress', 'review', 'done'));
-
--- Если RLS включен, владельцу проекта нужно видеть и проверять задачи своего проекта,
--- даже когда owner_id задачи принадлежит исполнителю.
-DO $$
+-- 1. Триггер для автосоздания профиля при регистрации
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE schemaname = 'public'
-          AND tablename = 'tasks'
-          AND policyname = 'Project owners can view project tasks'
-    ) THEN
-        CREATE POLICY "Project owners can view project tasks"
-        ON tasks FOR SELECT
-        USING (
-            owner_id = auth.uid()
-            OR assignee = auth.jwt() ->> 'email'
-            OR EXISTS (
-                SELECT 1 FROM projects
-                WHERE projects.id = tasks.project_id
-                AND projects.owner_id = auth.uid()
-            )
-        );
-    END IF;
+  INSERT INTO public.profiles (id, name, email, role, created_at)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    'user',
+    NOW()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    name = COALESCE(EXCLUDED.name, profiles.name);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE schemaname = 'public'
-          AND tablename = 'tasks'
-          AND policyname = 'Project owners can update project tasks'
-    ) THEN
-        CREATE POLICY "Project owners can update project tasks"
-        ON tasks FOR UPDATE
-        USING (
-            owner_id = auth.uid()
-            OR assignee = auth.jwt() ->> 'email'
-            OR EXISTS (
-                SELECT 1 FROM projects
-                WHERE projects.id = tasks.project_id
-                AND projects.owner_id = auth.uid()
-            )
-        )
-        WITH CHECK (
-            owner_id = auth.uid()
-            OR assignee = auth.jwt() ->> 'email'
-            OR EXISTS (
-                SELECT 1 FROM projects
-                WHERE projects.id = tasks.project_id
-                AND projects.owner_id = auth.uid()
-            )
-        );
-    END IF;
-END $$;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 2. Добавить avatar_url в profiles если нет
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- 3. Исправить RLS для tasks — разрешить UPDATE назначенным исполнителям
+DROP POLICY IF EXISTS tasks_update ON public.tasks;
+CREATE POLICY tasks_update ON public.tasks
+FOR UPDATE USING (
+  auth.uid() = owner_id
+  OR assignee = (SELECT email FROM public.profiles WHERE id = auth.uid())
+);
+
+-- 4. Исправить RLS для tasks — разрешить SELECT назначенным исполнителям
+DROP POLICY IF EXISTS tasks_select ON public.tasks;
+CREATE POLICY tasks_select ON public.tasks
+FOR SELECT USING (
+  auth.uid() = owner_id
+  OR assignee = (SELECT email FROM public.profiles WHERE id = auth.uid())
+  OR project_id IN (
+    SELECT id FROM public.projects
+    WHERE owner_id = auth.uid()
+    OR members @> ARRAY[(SELECT email FROM public.profiles WHERE id = auth.uid())]::text[]
+  )
+);
