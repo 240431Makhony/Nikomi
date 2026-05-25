@@ -2602,17 +2602,7 @@ function openInviteModal() {
         if (p.id === currentProjectId) opt.selected = true;
         sel.appendChild(opt);
     });
-    // Генерируем ссылку-приглашение
-    const link = `${window.location.origin}/main.html?invite=${btoa(currentProjectId || '')}`;
-    document.getElementById('inviteLink').value = link;
     openModal('inviteModal');
-}
-
-function copyInviteLink() {
-    const input = document.getElementById('inviteLink');
-    input.select();
-    document.execCommand('copy');
-    alert('Ссылка скопирована!');
 }
 
 async function sendInvite() {
@@ -2620,7 +2610,6 @@ async function sendInvite() {
     const projectId = document.getElementById('inviteProject').value;
     if (!email) { showInviteStatus('Введите email участника', 'error'); return; }
 
-    const checkBtn = document.getElementById('checkEmailBtn');
     const statusEl = document.getElementById('inviteEmailStatus');
 
     // Проверяем существование пользователя
@@ -3409,7 +3398,7 @@ Object.assign(window, {
     saveTask, changeTaskStatus, deleteTask, openTaskModalForProject,
     showTaskDetail, openEditTaskModal,
     saveNote, deleteNote,
-    openInviteModal, copyInviteLink, sendInvite,
+    openInviteModal, sendInvite,
     saveSettings,
     changeMonth, openCalendarDay,
     closePersNotif,

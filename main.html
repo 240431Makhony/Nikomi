@@ -886,13 +886,6 @@
                 <input type="email" id="inviteEmail" placeholder="colleague@email.com" oninput="document.getElementById('inviteEmailStatus').style.display='none'">
                 <div id="inviteEmailStatus" style="display:none;padding:8px 12px;border-radius:8px;font-size:13px;margin-top:8px;font-weight:500;"></div>
             </div>
-            <div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:8px;">
-                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Или поделитесь ссылкой</div>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="inviteLink" readonly style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:white;color:var(--text-secondary);">
-                    <button class="btn-primary" style="padding:8px 14px;font-size:12px;" onclick="copyInviteLink()"><i class="fas fa-copy"></i></button>
-                </div>
-            </div>
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-outline" onclick="closeModal('inviteModal')">Отмена</button>
