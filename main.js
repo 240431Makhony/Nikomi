@@ -116,6 +116,12 @@ function navigate(section) {
     if (section === 'ai-day') renderAiDay();
 }
 
+function goHome() {
+    closeAllModals();
+    navigate('dashboard');
+    document.getElementById('sidebar')?.classList.remove('mobile-open');
+}
+
 // ===== MODALS =====
 function resetTaskModalSubmitButton() {
     const btn = document.querySelector('#taskModal .btn-primary');
@@ -165,6 +171,10 @@ function closeModal(id) {
     if (id === 'taskModal') { document.getElementById('taskName').value = ''; document.getElementById('taskDesc').value = ''; document.getElementById('taskStatus').value = 'todo'; document.getElementById('taskPriority').value = 'medium'; document.getElementById('taskDue').value = ''; document.getElementById('taskProject').value = ''; document.getElementById('taskAssignee').value = ''; resetTaskModalSubmitButton(); const titleEl = document.getElementById('taskModalTitle'); if (titleEl) titleEl.textContent = 'Новая задача'; }
     if (id === 'noteModal') { document.getElementById('noteTitle').value = ''; document.getElementById('noteContent').value = ''; }
     if (id === 'rejectTaskModal') rejectTaskId = null;
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal-overlay.open').forEach(modal => modal.classList.remove('open'));
 }
 
 function fillTaskProjectSelect(selectedId) {
@@ -3259,7 +3269,7 @@ init();
 // ===== ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ =====
 // Нужно потому что main.js — ES модуль, onclick не видит функции модуля
 Object.assign(window, {
-    openModal, closeModal, navigate,
+    openModal, closeModal, navigate, goHome,
     saveProject, saveEditProject, deleteProject, deleteProjectDirect,
     openProjectDetail, openEditProjectModal, showProjectDetailModal,
     addMemberToProject, removeMemberFromProject,
@@ -3277,5 +3287,6 @@ Object.assign(window, {
     openNotifPanel,
     addAttachmentLink, uploadAttachmentFile, removeAttachment, saveLinkAttachment,
     submitComment, removeComment,
+    openEmojiPicker, selectEmoji,
 });
 
