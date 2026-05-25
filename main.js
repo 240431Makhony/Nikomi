@@ -1147,7 +1147,7 @@ async function submitRejectTask() {
     if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
     showPersNotif('warning', 'Задача возвращена на доработку 🔄');
 }
-let taskFilters = { priority: 'all', project: 'all' };
+let taskFilters = { priority: 'all', project: 'all', stat: 'all' };
 
 function setTaskFilter(type, value, btn) {
     taskFilters[type] = value;
@@ -1158,11 +1158,65 @@ function setTaskFilter(type, value, btn) {
     renderAllTasks();
 }
 
+function setTaskStatFilter(value) {
+    taskFilters.stat = value;
+    renderAllTasks();
+}
+
+function taskMatchesStatFilter(task, stat, today, weekEnd) {
+    const todayIso = formatDateISO(today);
+    const weekEndIso = formatDateISO(weekEnd);
+    if (stat === 'all') return true;
+    if (stat === 'inprogress') return task.status === 'inprogress';
+    if (stat === 'doneToday') {
+        if (task.status !== 'done') return false;
+        const d = new Date(task.updated_at || task.created_at);
+        d.setHours(0,0,0,0);
+        return d.getTime() === today.getTime();
+    }
+    if (stat === 'dueToday') {
+        if (!task.due_date || task.status === 'done') return false;
+        return task.due_date === todayIso;
+    }
+    if (stat === 'dueWeek') {
+        if (!task.due_date || task.status === 'done') return false;
+        return task.due_date >= todayIso && task.due_date <= weekEndIso;
+    }
+    return true;
+}
+
+function taskStatFilterLabel(stat) {
+    return {
+        all: 'Все задачи',
+        inprogress: 'В работе',
+        doneToday: 'Сегодня готово',
+        dueToday: 'На сегодня',
+        dueWeek: 'На неделю'
+    }[stat] || 'Все задачи';
+}
+
+function renderTaskActiveFilterSummary(count) {
+    const el = document.getElementById('tasksActiveFilter');
+    if (!el) return;
+    if (taskFilters.stat === 'all') {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+    el.style.display = 'flex';
+    el.innerHTML = `
+        <span><i class="fas fa-filter"></i> Показаны задачи: <strong>${taskStatFilterLabel(taskFilters.stat)}</strong> · ${count}</span>
+        <button type="button" onclick="setTaskStatFilter('all')"><i class="fas fa-times"></i> Сбросить</button>
+    `;
+}
+
 function renderTasksStats() {
     const myEmail = state.user?.email;
     const myTasks = state.tasks.filter(t => t.owner_id === state.user?.id || t.assignee === myEmail);
     const today = new Date(); today.setHours(0,0,0,0);
     const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+    const todayIso = formatDateISO(today);
+    const weekEndIso = formatDateISO(weekEnd);
 
     const total = myTasks.length;
     const inWork = myTasks.filter(t => t.status === 'inprogress').length;
@@ -1174,21 +1228,19 @@ function renderTasksStats() {
     }).length;
     const dueToday = myTasks.filter(t => {
         if (!t.due_date || t.status === 'done') return false;
-        const d = new Date(t.due_date); d.setHours(0,0,0,0);
-        return d.getTime() === today.getTime();
+        return t.due_date === todayIso;
     }).length;
     const dueWeek = myTasks.filter(t => {
         if (!t.due_date || t.status === 'done') return false;
-        const d = new Date(t.due_date);
-        return d >= today && d <= weekEnd;
+        return t.due_date >= todayIso && t.due_date <= weekEndIso;
     }).length;
 
     document.getElementById('tasksStats').innerHTML = `
-        <span class="tasks-stat-chip"><i class="fas fa-list"></i> Всего: ${total}</span>
-        <span class="tasks-stat-chip"><i class="fas fa-bolt" style="color:#F8C95D"></i> В работе: ${inWork}</span>
-        <span class="tasks-stat-chip"><i class="fas fa-check" style="color:#4CAF50"></i> Сегодня готово: ${doneToday}</span>
-        <span class="tasks-stat-chip"><i class="fas fa-calendar-day" style="color:#60B4F0"></i> На сегодня: ${dueToday}</span>
-        <span class="tasks-stat-chip"><i class="fas fa-calendar-week" style="color:#A78BFA"></i> На неделю: ${dueWeek}</span>
+        <button type="button" class="tasks-stat-chip ${taskFilters.stat === 'all' ? 'active' : ''}" onclick="setTaskStatFilter('all')"><i class="fas fa-list"></i> Всего: ${total}</button>
+        <button type="button" class="tasks-stat-chip ${taskFilters.stat === 'inprogress' ? 'active' : ''}" onclick="setTaskStatFilter('inprogress')"><i class="fas fa-bolt" style="color:#F8C95D"></i> В работе: ${inWork}</button>
+        <button type="button" class="tasks-stat-chip ${taskFilters.stat === 'doneToday' ? 'active' : ''}" onclick="setTaskStatFilter('doneToday')"><i class="fas fa-check" style="color:#4CAF50"></i> Сегодня готово: ${doneToday}</button>
+        <button type="button" class="tasks-stat-chip ${taskFilters.stat === 'dueToday' ? 'active' : ''}" onclick="setTaskStatFilter('dueToday')"><i class="fas fa-calendar-day" style="color:#60B4F0"></i> На сегодня: ${dueToday}</button>
+        <button type="button" class="tasks-stat-chip ${taskFilters.stat === 'dueWeek' ? 'active' : ''}" onclick="setTaskStatFilter('dueWeek')"><i class="fas fa-calendar-week" style="color:#A78BFA"></i> На неделю: ${dueWeek}</button>
     `;
 }
 
@@ -1196,10 +1248,12 @@ function renderProjectFilterBtns() {
     const container = document.getElementById('projectFilterBtns');
     if (!container) return;
     container.innerHTML = state.projects.map(p => `
-        <button class="filter-btn" data-project="${p.id}" onclick="setTaskFilter('project','${p.id}',this)">
+        <button class="filter-btn ${taskFilters.project === p.id ? 'active' : ''}" data-project="${p.id}" onclick="setTaskFilter('project','${p.id}',this)">
             <span class="filter-project-emoji">${getProjectEmoji(p)}</span>${p.title}
         </button>
     `).join('');
+    const allProjectBtn = document.querySelector('.filter-btn[data-project="all"]');
+    if (allProjectBtn) allProjectBtn.classList.toggle('active', taskFilters.project === 'all');
 }
 
 function renderAllTasks() {
@@ -1221,6 +1275,12 @@ function renderAllTasks() {
     if (taskFilters.project !== 'all') {
         tasks = tasks.filter(t => t.project_id === taskFilters.project);
     }
+    if (taskFilters.stat !== 'all') {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+        tasks = tasks.filter(t => taskMatchesStatFilter(t, taskFilters.stat, today, weekEnd));
+    }
+    renderTaskActiveFilterSummary(tasks.length);
 
     // Сортировка по приоритету
     const prioOrder = { high: 0, medium: 1, low: 2 };
@@ -1234,7 +1294,11 @@ function renderAllTasks() {
         const filtered = tasks.filter(t => t.status === s);
         if (countEl) countEl.textContent = filtered.length;
         container.innerHTML = '';
-        filtered.forEach(t => container.appendChild(createTaskCard(t, false)));
+        if (filtered.length) {
+            filtered.forEach(t => container.appendChild(createTaskCard(t, false)));
+        } else {
+            container.innerHTML = '<div class="kanban-empty-small">Нет задач</div>';
+        }
         setupDropZone(container, s, null);
     });
 }
@@ -1689,11 +1753,24 @@ function renderNotes() {
         const card = document.createElement('div');
         card.className = 'note-card';
         card.innerHTML = `
-            <div class="note-card-title">${n.title}</div>
-            <div class="note-card-content">${n.content || 'Нет содержимого'}</div>
-            <div class="note-card-date">${formatDate(n.createdAt)}</div>`;
+            <button class="note-delete-btn" title="Удалить заметку" onclick="event.stopPropagation();deleteNote('${n.id}')"><i class="fas fa-trash"></i></button>
+            <div class="note-card-title">${escapeHtml(n.title)}</div>
+            <div class="note-card-content">${escapeHtml(n.content || 'Нет содержимого')}</div>
+            <div class="note-card-date">${formatDate(n.created_at || n.createdAt)}</div>`;
         grid.appendChild(card);
     });
+}
+
+async function deleteNote(id) {
+    if (!confirm('Удалить заметку?')) return;
+    const result = await sbDeleteNote(id);
+    if (!result.success) {
+        alert('Ошибка: ' + result.error);
+        return;
+    }
+    state.notes = state.notes.filter(n => n.id !== id);
+    renderNotes();
+    showPersNotif('warning', 'Заметка удалена');
 }
 
 // ===== DASHBOARD =====
@@ -2383,6 +2460,33 @@ function formatDateISO(date) {
     const d = new Date(date);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function addDaysISO(dateValue, days) {
+    const d = dateValue ? new Date(dateValue) : new Date();
+    d.setDate(d.getDate() + days);
+    return formatDateISO(d);
+}
+function getDateRangeDays(startDate, endDate) {
+    const start = startDate ? new Date(startDate) : new Date();
+    const end = endDate ? new Date(endDate) : new Date(start);
+    if (!endDate) end.setDate(start.getDate() + 30);
+    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return Math.max(1, diff || 1);
+}
+function readAiDateRange(startId, endId, fallbackStart, fallbackEnd) {
+    const startEl = document.getElementById(startId);
+    const endEl = document.getElementById(endId);
+    const startDate = startEl?.value || fallbackStart || formatDateISO(new Date());
+    let endDate = endEl?.value || fallbackEnd || addDaysISO(startDate, 30);
+    if (new Date(endDate) <= new Date(startDate)) {
+        endDate = addDaysISO(startDate, 1);
+        if (endEl) endEl.value = endDate;
+    }
+    return {
+        startDate,
+        endDate,
+        days: getDateRangeDays(startDate, endDate)
+    };
+}
 
 // ===== PERS NOTIFICATIONS =====
 const persMessages = {
@@ -2700,7 +2804,7 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-function normalizeAiPhases(result, fallbackDays) {
+function normalizeAiPhases(result, fallbackDays, startDate = formatDateISO(new Date())) {
     const phases = Array.isArray(result) ? result : result?.phases;
     if (!Array.isArray(phases) || !phases.length) throw new Error('Groq вернул результат без этапов');
 
@@ -2713,6 +2817,8 @@ function normalizeAiPhases(result, fallbackDays) {
             days,
             startDay: currentDay,
             endDay: currentDay + days,
+            startDate: addDaysISO(startDate, currentDay),
+            endDate: addDaysISO(startDate, currentDay + days),
             tasks: tasks.map(task => typeof task === 'string'
                 ? { title: task, priority: 'medium', assignee: '' }
                 : {
@@ -2758,12 +2864,27 @@ function renderAiDecompose() {
     const myProjects = state.projects.filter(p => p.owner_id === myId);
     sel.innerHTML = '<option value="">— Выберите проект —</option>' +
         myProjects.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+    const startEl = document.getElementById('aiDecomposeStartDate');
+    const endEl = document.getElementById('aiDecomposeEndDate');
+    if (startEl && !startEl.value) startEl.value = formatDateISO(new Date());
+    if (endEl && !endEl.value) endEl.value = addDaysISO(startEl?.value, 30);
+    sel.onchange = () => syncAiDateRangeFromProject(sel.value);
+}
+
+function syncAiDateRangeFromProject(projectId) {
+    const project = state.projects.find(p => p.id === projectId);
+    const startEl = document.getElementById('aiDecomposeStartDate');
+    const endEl = document.getElementById('aiDecomposeEndDate');
+    if (!startEl || !endEl || !project) return;
+    if (project.start_date) startEl.value = project.start_date;
+    if (project.deadline) endEl.value = project.deadline;
 }
 
 // Запуск AI прямо в модале создания проекта
 async function runAiDecomposeInModal() {
     const description = document.getElementById('aiModalDecomposeInput').value.trim();
-    const days = parseInt(document.getElementById('aiModalDecomposeDays').value) || 30;
+    const range = readAiDateRange('projectStartDate', 'projectDeadline');
+    const days = range.days;
     const output = document.getElementById('aiModalResult');
 
     if (!description) {
@@ -2783,14 +2904,16 @@ async function runAiDecomposeInModal() {
         const result = await callGroqAPI('decompose', {
             title: document.getElementById('projectName')?.value.trim() || 'Новый проект',
             description,
-            days
+            days,
+            startDate: range.startDate,
+            endDate: range.endDate
         });
-        const phases = normalizeAiPhases(result, days);
+        const phases = normalizeAiPhases(result, days, range.startDate);
         window._aiModalPhases = phases;
         renderDecomposeInModal(phases);
     } catch (error) {
         console.error('Groq decomposition error:', error);
-        window._aiModalPhases = normalizeAiPhases({ phases: generateMockDecomposition(description, days) }, days);
+        window._aiModalPhases = normalizeAiPhases({ phases: generateMockDecomposition(description, days, range.startDate) }, days, range.startDate);
         showAiError(output, error.message, 'renderDecomposeInModal(window._aiModalPhases)');
     }
 }
@@ -2808,7 +2931,7 @@ function renderDecomposeInModal(phases) {
         <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
             ${phases.map((phase, i) => `
                 <div style="padding:8px 12px;background:var(--bg-main);border-radius:8px;border-left:3px solid ${colors[i % colors.length]};">
-                    <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${escapeHtml(phase.name)} (${phase.days} дн.)</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${escapeHtml(phase.name)} · ${formatDate(phase.startDate)}–${formatDate(phase.endDate)}</div>
                     <div style="font-size:11px;color:var(--text-secondary);">${phase.tasks.map(t => escapeHtml(t.title)).join(' · ')}</div>
                 </div>
             `).join('')}
@@ -2824,7 +2947,8 @@ async function runAiDecompose() {
     const newBlock = document.getElementById('aiNewBlock');
     const isNewMode = newBlock && newBlock.style.display !== 'none';
     const description = document.getElementById('aiDecomposeInput').value.trim();
-    const days = parseInt(document.getElementById('aiDecomposeDays').value) || 30;
+    const range = readAiDateRange('aiDecomposeStartDate', 'aiDecomposeEndDate');
+    const days = range.days;
     const output = document.getElementById('aiDecomposeOutput');
     let projectId = '';
 
@@ -2840,7 +2964,7 @@ async function runAiDecompose() {
             document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">Введите название нового проекта</div>';
             return;
         }
-        const result = await sbCreateProject({ title: newName, description: '', status: 'active' });
+        const result = await sbCreateProject({ title: newName, description: '', status: 'active', start_date: range.startDate, deadline: range.endDate });
         if (!result.success) {
             document.getElementById('aiDecomposeOutput').innerHTML = '<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">Ошибка создания проекта: ' + result.error + '</div>';
             return;
@@ -2868,20 +2992,22 @@ async function runAiDecompose() {
         const result = await callGroqAPI('decompose', {
             title: project?.title || document.getElementById('aiNewProjectName')?.value.trim() || 'Новый проект',
             description,
-            days
+            days,
+            startDate: range.startDate,
+            endDate: range.endDate
         });
-        renderDecomposeResult(normalizeAiPhases(result, days), projectId);
+        renderDecomposeResult(normalizeAiPhases(result, days, range.startDate), projectId);
     } catch (error) {
         console.error('Groq decomposition error:', error);
         window._aiDecomposeFallback = {
-            phases: normalizeAiPhases({ phases: generateMockDecomposition(description, days) }, days),
+            phases: normalizeAiPhases({ phases: generateMockDecomposition(description, days, range.startDate) }, days, range.startDate),
             projectId
         };
         showAiError(output, error.message, 'renderDecomposeResult(window._aiDecomposeFallback.phases, window._aiDecomposeFallback.projectId)');
     }
 }
 
-function generateMockDecomposition(description, totalDays) {
+function generateMockDecomposition(description, totalDays, startDate = formatDateISO(new Date())) {
     const phases = [
         { name: 'Анализ и планирование', percent: 15, tasks: ['Сбор требований', 'Анализ конкурентов', 'Составление ТЗ', 'Планирование архитектуры'] },
         { name: 'Дизайн', percent: 20, tasks: ['Wireframes', 'UI/UX дизайн', 'Прототипирование', 'Согласование дизайна'] },
@@ -2895,7 +3021,14 @@ function generateMockDecomposition(description, totalDays) {
         const phaseDays = Math.round(totalDays * phase.percent / 100);
         const startDay = currentDay;
         currentDay += phaseDays;
-        return { ...phase, startDay, endDay: currentDay, days: phaseDays };
+        return {
+            ...phase,
+            startDay,
+            endDay: currentDay,
+            startDate: addDaysISO(startDate, startDay),
+            endDate: addDaysISO(startDate, currentDay),
+            days: phaseDays
+        };
     });
 }
 
@@ -2913,9 +3046,9 @@ function renderDecomposeResult(phases, projectId) {
                 <div style="padding:12px 16px;background:${colors[i % colors.length]}20;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
                     <div>
                         <span style="font-weight:700;color:var(--text-primary);">${i+1}. ${escapeHtml(phase.name)}</span>
-                        <span style="font-size:11px;color:var(--text-secondary);margin-left:8px;">День ${phase.startDay+1}–${phase.endDay}</span>
+                        <span style="font-size:11px;color:var(--text-secondary);margin-left:8px;">${formatDate(phase.startDate)}–${formatDate(phase.endDate)}</span>
                     </div>
-                    <span style="font-size:12px;font-weight:600;color:${colors[i % colors.length]};background:${colors[i % colors.length]}20;padding:3px 10px;border-radius:10px;">${phase.days} дн.</span>
+                    <span style="font-size:12px;font-weight:600;color:${colors[i % colors.length]};background:${colors[i % colors.length]}20;padding:3px 10px;border-radius:10px;">${formatDate(phase.endDate)}</span>
                 </div>
                 <div style="padding:12px 16px;">
                     ${phase.tasks.map(t => `
@@ -3275,12 +3408,12 @@ Object.assign(window, {
     addMemberToProject, removeMemberFromProject,
     saveTask, changeTaskStatus, deleteTask, openTaskModalForProject,
     showTaskDetail, openEditTaskModal,
-    saveNote,
+    saveNote, deleteNote,
     openInviteModal, copyInviteLink, sendInvite,
     saveSettings,
     changeMonth, openCalendarDay,
     closePersNotif,
-    setTaskFilter,
+    setTaskFilter, setTaskStatFilter,
     sendToReview, approveTask, rejectTask, closeRejectTaskModal, submitRejectTask,
     runAiDecompose, applyDecomposition, switchAiMode,
     runAiDayPlan, runAiDecomposeInModal,

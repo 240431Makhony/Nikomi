@@ -384,12 +384,31 @@ body.main-app {
 .note-card {
     background:white; border-radius:14px; padding:18px;
     border:1px solid var(--border); box-shadow:0 2px 8px var(--shadow);
-    cursor:pointer; transition:all 0.2s;
+    cursor:pointer; transition:all 0.2s; position:relative;
 }
 .note-card:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.1); }
-.note-card-title { font-size:15px; font-weight:700; margin-bottom:8px; }
+.note-card-title { font-size:15px; font-weight:700; margin-bottom:8px; padding-right:30px; }
 .note-card-content { font-size:13px; color:var(--text-secondary); line-height:1.5; display:-webkit-box; -webkit-line-clamp:4; line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
 .note-card-date { font-size:11px; color:var(--text-secondary); margin-top:12px; }
+.note-delete-btn {
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:28px;
+    height:28px;
+    border:none;
+    border-radius:8px;
+    background:var(--bg-main);
+    color:var(--text-secondary);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    transition:all 0.2s;
+}
+.note-card:hover .note-delete-btn { opacity:1; }
+.note-delete-btn:hover { background:rgba(229,115,115,0.14); color:#c62828; }
 
 /* ===== PROFILE ===== */
 .profile-card {
@@ -843,7 +862,52 @@ body.dark .pers-notif-close:hover { color: #FFFFFF; }
     transition: all 0.2s;
 }
 .tasks-stat-chip:hover { border-color: var(--primary); color: var(--primary); }
+.tasks-stat-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
 .tasks-stat-chip i { font-size: 12px; }
+
+.tasks-active-filter {
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -6px 0 16px;
+    padding: 10px 14px;
+    background: rgba(58,176,168,0.1);
+    border: 1px solid rgba(58,176,168,0.25);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+}
+.tasks-active-filter span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.tasks-active-filter i { color: var(--primary); }
+.tasks-active-filter button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.kanban-empty-small {
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+}
 
 .tasks-filters {
     display: flex;
