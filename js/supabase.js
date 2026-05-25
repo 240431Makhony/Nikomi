@@ -156,6 +156,11 @@ export async function getTasks(projectId = null) {
 
     const { data, error } = await query;
     if (error) { console.error(error); return []; }
+
+    // Показываем задачи:
+    // - созданные мной
+    // - назначенные мне
+    // - из проектов где я владелец или участник
     return (data || []).filter(t =>
         t.owner_id === user.id ||
         t.assignee === email ||

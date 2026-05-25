@@ -805,7 +805,8 @@ function canSeeReviewNote(task) {
 async function updateTaskAndLocal(task, updates) {
     const result = await sbUpdateTask(task.id, updates);
     if (!result.success) {
-        alert('Ошибка сохранения задачи:\n' + result.error);
+        console.error('updateTask error:', result.error, 'task:', task.id, 'updates:', updates);
+        alert('Ошибка сохранения: ' + result.error);
         return false;
     }
     Object.assign(task, updates);
@@ -849,20 +850,18 @@ async function refreshWorkspaceData() {
 }
 
 function setupRealtimeRefresh() {
-    // Realtime — только обновляем данные в фоне, не перерисовываем если идёт drag
+    // Подписываемся только на projects и notes — tasks обновляем только вручную
+    // чтобы избежать мигания и дублей при drag-and-drop
     supabase
         .channel('workspace-live-refresh')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-            if (!draggedTaskId) scheduleWorkspaceRefresh();
-        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleWorkspaceRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, scheduleWorkspaceRefresh)
         .subscribe();
 
-    // Фоновый рефреш каждые 30 секунд (не 12)
+    // Фоновый рефреш каждые 60 секунд
     setInterval(() => {
         if (!document.hidden && !draggedTaskId) refreshWorkspaceData();
-    }, 30000);
+    }, 60000);
 }
 
 // ===== SEND TO REVIEW =====
