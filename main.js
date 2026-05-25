@@ -1402,13 +1402,27 @@ function formatFileSize(bytes) {
 }
 
 async function addAttachmentLink() {
-    const name = prompt('Название ссылки:');
-    if (!name) return;
-    const url = prompt('URL ссылки:');
-    if (!url) return;
+    // Открываем красивый модал вместо prompt()
+    document.getElementById('linkAttachName').value = '';
+    document.getElementById('linkAttachUrl').value = '';
+    openModal('linkAttachModal');
+}
+
+async function saveLinkAttachment() {
+    const name = document.getElementById('linkAttachName').value.trim();
+    const url = document.getElementById('linkAttachUrl').value.trim();
+    if (!name) { alert('Введите название'); return; }
+    if (!url) { alert('Введите URL'); return; }
+
+    const btn = document.querySelector('#linkAttachModal .btn-primary');
+    setBtnLoading(btn, 'Добавляем...');
 
     const taskId = window.currentTaskId;
     const result = await addTaskLink(taskId, name, url);
+
+    setBtnDone(btn, 'Добавить');
+    closeModal('linkAttachModal');
+
     if (result.success) {
         loadTaskAttachments(taskId);
         showPersNotif('success', 'Ссылка добавлена! 🔗');
@@ -3044,6 +3058,6 @@ Object.assign(window, {
     runAiDecompose, applyDecomposition, switchAiMode,
     runAiDayPlan, runAiDecomposeInModal,
     openNotifPanel,
-    addAttachmentLink, uploadAttachmentFile, removeAttachment,
+    addAttachmentLink, uploadAttachmentFile, removeAttachment, saveLinkAttachment,
 });
 

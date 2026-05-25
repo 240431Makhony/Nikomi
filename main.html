@@ -870,6 +870,30 @@
     <div class="pers-notif-text" id="persNotifText"></div>
 </div>
 
+<!-- Link Attachment Modal -->
+<div class="modal-overlay" id="linkAttachModal">
+    <div class="modal" style="max-width:400px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-link" style="color:var(--primary);margin-right:8px;"></i>Добавить ссылку</h3>
+            <button class="modal-close" onclick="closeModal('linkAttachModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" id="linkAttachName" placeholder="Например: Гугл Диск, Figma, Документация...">
+            </div>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="url" id="linkAttachUrl" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-outline" onclick="closeModal('linkAttachModal')">Отмена</button>
+            <button class="btn-primary" onclick="saveLinkAttachment()"><i class="fas fa-link"></i> Добавить</button>
+        </div>
+    </div>
+</div>
+
 <script type="module" src="main.js"></script>
 </body>
 </html>

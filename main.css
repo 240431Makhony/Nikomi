@@ -1905,3 +1905,60 @@ body.dark .notif-btn { background: #1E2130 !important; }
 #headerUserBtn.menu-open {
     background: rgba(58,176,168,0.08);
 }
+
+/* ===== KANBAN STICKY HEADERS + INFINITE COLUMNS ===== */
+
+/* Обёртка канбана — фиксированная высота с прокруткой */
+#kanbanBoard,
+#allTasksBoard {
+    align-items: stretch !important;
+    height: calc(100vh - 220px);
+    min-height: 500px;
+}
+
+.kanban-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    height: 100%;
+}
+
+/* Заголовок колонки — прилипает сверху */
+.kanban-col-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-main);
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+}
+
+/* Карточки — скролл внутри колонки */
+.kanban-cards {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 200px;
+    padding-bottom: 60px; /* место для кнопки добавить */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.kanban-cards::-webkit-scrollbar { width: 4px; }
+.kanban-cards::-webkit-scrollbar-track { background: transparent; }
+.kanban-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Кнопка добавить — прилипает снизу */
+.kanban-add-btn {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-main);
+    margin-top: 8px;
+    z-index: 5;
+}
+
+/* Drop zone на всю высоту колонки */
+.kanban-cards.drag-over {
+    background: rgba(58,176,168,0.06);
+    border-radius: 8px;
+    outline: 2px dashed var(--primary);
+    outline-offset: -2px;
+}
