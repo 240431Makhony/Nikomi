@@ -2623,23 +2623,31 @@ async function sendInvite() {
 
     showInviteStatus(`✅ Найден: ${check.user.name || email}`, 'success');
 
-    const result = await inviteMember(projectId, email);
-    if (result.success) {
-        showInviteStatus(`✅ Участник добавлен!`, 'success');
-        // Добавляем в локальный state
-        const project = state.projects.find(p => p.id === projectId);
-        if (project) {
-            if (!project.members) project.members = [];
-            if (!project.members.includes(email)) project.members.push(email);
-        }
-        setTimeout(() => {
-            closeModal('inviteModal');
-            document.getElementById('inviteEmail').value = '';
-            renderProjects();
-        }, 1500);
-    } else {
-        showInviteStatus('❌ Ошибка: ' + result.error, 'error');
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) {
+        showInviteStatus('❌ Проект не найден', 'error');
+        return;
     }
+    if (project.members?.includes(email)) {
+        showInviteStatus('⚠️ Этот участник уже добавлен', 'info');
+        return;
+    }
+
+    const members = [...(project.members || []), email];
+    const result = await sbUpdateProject(projectId, { members });
+    if (!result.success) {
+        showInviteStatus('❌ Ошибка: ' + result.error, 'error');
+        return;
+    }
+
+    project.members = members;
+    showInviteStatus(`✅ Участник добавлен!`, 'success');
+    setTimeout(() => {
+        closeModal('inviteModal');
+        document.getElementById('inviteEmail').value = '';
+        renderProjects();
+        updateBadges();
+    }, 1500);
 }
 
 function showInviteStatus(msg, type) {
