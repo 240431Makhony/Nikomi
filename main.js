@@ -217,7 +217,30 @@ function openTaskModalForProject(status) {
     openModal('taskModal');
 }
 
-// ===== PROJECTS =====
+// ===== BUTTON LOADING STATE =====
+function setBtnLoading(btn, text = 'Сохраняем...') {
+    if (!btn) return;
+    btn._originalHTML = btn.innerHTML;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>${text}`;
+    btn.disabled = true;
+}
+function setBtnDone(btn, text, successText) {
+    if (!btn) return;
+    if (successText) {
+        btn.innerHTML = `<i class="fas fa-check" style="margin-right:6px;"></i>${successText}`;
+        btn.style.background = 'linear-gradient(135deg,#4CAF50,#388E3C)';
+        setTimeout(() => {
+            btn.innerHTML = btn._originalHTML || text || 'Сохранить';
+            btn.style.background = '';
+            btn.disabled = false;
+        }, 1500);
+    } else {
+        btn.innerHTML = btn._originalHTML || text || 'Создать';
+        btn.disabled = false;
+    }
+}
+
+
 async function saveProject() {
     if (isSavingProject) return;
     const title = document.getElementById('projectName').value.trim();
@@ -225,8 +248,7 @@ async function saveProject() {
 
     const btn = document.querySelector('#projectModal .btn-primary');
     isSavingProject = true;
-    btn.textContent = 'Создаём...';
-    btn.disabled = true;
+    setBtnLoading(btn, 'Создаём...');
 
     try {
         const result = await sbCreateProject({
@@ -237,7 +259,7 @@ async function saveProject() {
             deadline: document.getElementById('projectDeadline').value || null,
         });
 
-        if (!result.success) { alert('Ошибка: ' + result.error); return; }
+        if (!result.success) { setBtnDone(btn, 'Создать проект'); alert('Ошибка: ' + result.error); return; }
 
         if (!state.projects.some(p => p.id === result.project.id)) {
             state.projects.unshift({ ...result.project, members: result.project.members || [] });
@@ -246,7 +268,7 @@ async function saveProject() {
         const phases = Array.isArray(window._aiModalPhases) ? window._aiModalPhases : [];
         let created = 0;
         if (phases.length) {
-            btn.textContent = 'Создаём задачи...';
+            setBtnLoading(btn, 'Создаём задачи...');
             for (const phase of phases) {
                 for (const taskTitle of phase.tasks) {
                     const task = typeof taskTitle === 'string' ? { title: taskTitle, priority: 'medium' } : taskTitle;
@@ -502,7 +524,7 @@ async function saveEditProject() {
     if (!title) { alert('Введите название'); return; }
 
     const btn = document.getElementById('saveEditProjectBtn');
-    btn.textContent = 'Сохраняем...'; btn.disabled = true;
+    setBtnLoading(btn, 'Сохраняем...');
 
     const updates = {
         title,
@@ -514,24 +536,20 @@ async function saveEditProject() {
     };
 
     const result = await sbUpdateProject(p.id, updates);
-    btn.disabled = false;
 
     if (!result.success) {
-        btn.textContent = 'Сохранить';
+        setBtnDone(btn, 'Сохранить');
         alert('Ошибка: ' + result.error);
         return;
     }
 
     Object.assign(p, updates);
-    btn.innerHTML = '<i class="fas fa-check"></i> Сохранено';
-    btn.style.background = 'linear-gradient(135deg,#4CAF50,#388E3C)';
+    setBtnDone(btn, 'Сохранить', 'Сохранено');
     setTimeout(() => {
-        btn.innerHTML = 'Сохранить';
-        btn.style.background = '';
         closeModal('editProjectModal');
         renderProjects();
         showPersNotif('info', 'Проект обновлён! ✏️');
-    }, 1000);
+    }, 1500);
 }
 
 async function deleteProjectDirect(id) {
@@ -597,7 +615,7 @@ async function saveTask() {
     if (!title) { alert('Введите название задачи'); return; }
 
     const btn = document.querySelector('#taskModal .btn-primary');
-    btn.textContent = 'Создаём...'; btn.disabled = true;
+    setBtnLoading(btn, 'Создаём...');
 
     const assigneeVal = document.getElementById('taskAssignee')?.value?.trim() || null;
     console.log('saveTask assignee value:', assigneeVal);
@@ -615,7 +633,7 @@ async function saveTask() {
 
     const result = await sbCreateTask(taskData);
 
-    btn.textContent = 'Создать'; btn.disabled = false;
+    setBtnDone(btn, 'Создать');
 
     if (!result.success) { 
         console.error('saveTask error:', result.error);
@@ -1225,7 +1243,7 @@ async function saveEditTask(taskId) {
     const title = document.getElementById('taskName').value.trim();
     if (!title) { alert('Введите название задачи'); return; }
     const btn = document.querySelector('#taskModal .btn-primary');
-    btn.textContent = 'Сохраняем...'; btn.disabled = true;
+    setBtnLoading(btn, 'Сохраняем...');
 
     const updates = {
         title,
@@ -1239,8 +1257,7 @@ async function saveEditTask(taskId) {
 
     const existingTask = state.tasks.find(t => t.id === taskId);
     if (existingTask && updates.status !== existingTask.status && !canChangeTaskStatus(existingTask, updates.status)) {
-        btn.textContent = 'Сохранить';
-        btn.disabled = false;
+        setBtnDone(btn, 'Сохранить');
         alert(updates.status === 'done'
             ? 'Исполнитель не может сам отметить задачу готовой. Нужно отправить её на проверку.'
             : 'Недостаточно прав для смены этого статуса.');
@@ -1248,23 +1265,23 @@ async function saveEditTask(taskId) {
     }
 
     const result = await sbUpdateTask(taskId, updates);
-    btn.textContent = 'Сохранить'; btn.disabled = false;
 
-    if (!result.success) { alert('Ошибка: ' + result.error); return; }
+    if (!result.success) { setBtnDone(btn, 'Сохранить'); alert('Ошибка: ' + result.error); return; }
 
     const task = state.tasks.find(t => t.id === taskId);
     if (task) Object.assign(task, updates);
 
-    // Сбрасываем кнопку обратно
-    resetTaskModalSubmitButton();
-    const titleEl = document.getElementById('taskModalTitle');
-    if (titleEl) titleEl.textContent = 'Новая задача';
-
-    closeModal('taskModal');
-    updateBadges();
-    if (currentProjectId) renderKanban(currentProjectId);
-    if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
-    showPersNotif('info', 'Задача обновлена! ✏️');
+    setBtnDone(btn, 'Сохранить', 'Сохранено');
+    setTimeout(() => {
+        resetTaskModalSubmitButton();
+        const titleEl = document.getElementById('taskModalTitle');
+        if (titleEl) titleEl.textContent = 'Новая задача';
+        closeModal('taskModal');
+        updateBadges();
+        if (currentProjectId) renderKanban(currentProjectId);
+        if (document.getElementById('tasks-section').classList.contains('active')) renderAllTasks();
+        showPersNotif('info', 'Задача обновлена! ✏️');
+    }, 1000);
 }
 
 // ===== NOTES =====
@@ -1272,11 +1289,15 @@ async function saveNote() {
     const title = document.getElementById('noteTitle').value.trim();
     if (!title) { alert('Введите заголовок заметки'); return; }
 
+    const btn = document.querySelector('#noteModal .btn-primary');
+    setBtnLoading(btn, 'Сохраняем...');
+
     const result = await sbCreateNote({
         title,
         content: document.getElementById('noteContent').value.trim()
     });
 
+    setBtnDone(btn, 'Сохранить');
     if (!result.success) { alert('Ошибка: ' + result.error); return; }
 
     state.notes.unshift(result.note);
@@ -1625,25 +1646,19 @@ async function saveSettings() {
     const btn = document.querySelector('#settings-section .btn-primary');
 
     if (state.profile) {
-        btn.textContent = 'Сохраняем...'; btn.disabled = true;
+        setBtnLoading(btn, 'Сохраняем...');
         const updates = { name };
         if (avatarUrl !== undefined) updates.avatar_url = avatarUrl || null;
 
         const result = await sbUpdateProfile(state.user.id, updates);
-        btn.disabled = false;
         if (result.success) {
             state.profile.name = name;
             state.profile.avatar_url = avatarUrl || null;
             updateUserUI();
-            btn.innerHTML = '<i class="fas fa-check"></i> Сохранено';
-            btn.style.background = 'linear-gradient(135deg,#4CAF50,#388E3C)';
-            setTimeout(() => {
-                btn.innerHTML = 'Сохранить';
-                btn.style.background = '';
-            }, 2000);
+            setBtnDone(btn, 'Сохранить', 'Сохранено');
         } else {
-            btn.textContent = 'Ошибка!';
-            setTimeout(() => btn.textContent = 'Сохранить', 2000);
+            setBtnDone(btn, 'Сохранить');
+            alert('Ошибка сохранения: ' + result.error);
         }
     }
 }
@@ -2415,7 +2430,7 @@ async function applyDecomposition() {
     if (!data || !data.projectId) return;
 
     const btn = event.target.closest('button');
-    btn.textContent = 'Создаём задачи...'; btn.disabled = true;
+    setBtnLoading(btn, 'Создаём задачи...');
 
     let created = 0;
     for (const phase of data.phases) {
@@ -2436,8 +2451,7 @@ async function applyDecomposition() {
     }
 
     updateBadges();
-    btn.innerHTML = `<i class="fas fa-check"></i> Создано ${created} задач!`;
-    btn.style.background = 'linear-gradient(135deg,#4CAF50,#388E3C)';
+    setBtnDone(btn, 'Применить', `Создано ${created} задач!`);
     showPersNotif('success', `AI создал ${created} задач для проекта! 🚀`);
 }
 
@@ -2482,6 +2496,8 @@ function runAiDayPlan() {
     const end = document.getElementById('aiDayEnd').value || '18:00';
     const notes = document.getElementById('aiDayNotes').value.trim();
     const output = document.getElementById('aiDayOutput');
+    const btn = document.querySelector('#ai-day-section .btn-primary');
+    setBtnLoading(btn, 'Составляем план...');
 
     // Собираем выбранные задачи
     const checkedIds = [...document.querySelectorAll('#aiDayTasksList input[type=checkbox]:checked')]
@@ -2489,6 +2505,7 @@ function runAiDayPlan() {
 
     if (!checkedIds.length) {
         output.innerHTML = `<div style="color:#c62828;padding:16px;background:rgba(229,115,115,0.1);border-radius:10px;">Выберите хотя бы одну задачу</div>`;
+        setBtnDone(btn, 'Составить план дня');
         return;
     }
 
@@ -2515,8 +2532,10 @@ function runAiDayPlan() {
         if (!result?.schedule) throw new Error('Groq вернул результат без расписания');
         const updatedCount = await applyAiDayPlanDates(result, tasks);
         renderDayPlanFromAI(result, tasks, updatedCount);
+        setBtnDone(btn, 'Составить план дня', 'План готов!');
     }).catch(error => {
         console.error('Groq day plan error:', error);
+        setBtnDone(btn, 'Составить план дня');
         window._aiDayFallback = { tasks, start, end };
         showAiError(output, error.message, 'renderDayPlan(window._aiDayFallback.tasks, window._aiDayFallback.start, window._aiDayFallback.end)');
     });

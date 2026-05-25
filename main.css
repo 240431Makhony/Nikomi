@@ -1815,3 +1815,29 @@ body.dark .notif-btn { background: #1E2130 !important; }
         flex-direction: column;
     }
 }
+
+/* ===== BUTTON LOADING STATES ===== */
+.btn-primary:disabled,
+.btn-secondary-outline:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Спиннер внутри кнопки */
+.btn-primary .fa-spinner,
+.btn-secondary-outline .fa-spinner {
+    animation: spin 0.7s linear infinite;
+}
+
+/* Кнопка успеха */
+.btn-success-state {
+    background: linear-gradient(135deg, #4CAF50, #388E3C) !important;
+    box-shadow: 0 3px 12px rgba(76,175,80,0.35) !important;
+}
+
+/* Плавный переход состояний кнопки */
+.btn-primary {
+    transition: all 0.2s, background 0.3s !important;
+}

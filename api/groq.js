@@ -10,8 +10,8 @@ function sendJson(res, status, body) {
 function buildPrompt(type, data = {}) {
     if (type === 'decompose') {
         return [
-            'You are a senior project manager.',
-            'Create a practical project decomposition. All user-facing text must be in Russian.',
+            'You are a senior project manager. You MUST write ALL task titles and phase names EXCLUSIVELY in Russian language.',
+            'CRITICAL: Every single word in "name" and "title" fields must be in Russian. No English, no Polish, no other languages.',
             `Project title: ${data.title || 'New project'}`,
             `Project description: ${data.description || ''}`,
             `Deadline in days: ${data.days || 30}`,
@@ -22,6 +22,7 @@ function buildPrompt(type, data = {}) {
             '- Use priorities exactly: high, medium, low.',
             '- Leave assignee as an empty string.',
             '- Return only valid JSON. No markdown, no comments.',
+            '- ALL text values must be in Russian only.',
             '',
             'JSON shape:',
             '{"phases":[{"name":"string","days":7,"tasks":[{"title":"string","priority":"high","assignee":""}]}]}'
@@ -134,7 +135,7 @@ export default async function handler(req, res) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'Return only valid JSON. Do not use markdown. All user-facing string values must be in Russian.'
+                        content: 'Return only valid JSON. Do not use markdown. IMPORTANT: ALL user-facing string values (titles, names, descriptions, summaries, tips, suggestions, reasons) MUST be written in Russian language only. Never use English, Polish, or any other language for content fields.'
                     },
                     {
                         role: 'user',

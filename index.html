@@ -34,8 +34,7 @@
             display:flex; align-items:center; gap:64px;
             background:linear-gradient(135deg, #F0FBF9 0%, #FAFAF8 50%, #F5F0FF 100%);
             position:relative; overflow:hidden;
-        }
-        .lp-hero::before {
+        }        .lp-hero::before {
             content:''; position:absolute; top:-200px; right:-200px;
             width:600px; height:600px; border-radius:50%;
             background:radial-gradient(circle, rgba(58,176,168,0.12), transparent 70%);
@@ -119,7 +118,7 @@
 
         /* FEATURES SECTION */
         .lp-features {
-            padding:100px 48px; background:white;
+            padding:100px 48px; background:white; overflow:visible;
         }
         .lp-section-label {
             display:inline-flex; align-items:center; gap:6px;
@@ -146,7 +145,7 @@
         .lp-feat-title { font-size:17px; font-weight:700; color:#1a1a1a; margin-bottom:8px; font-family:'Plus Jakarta Sans',sans-serif; }
         .lp-feat-desc { font-size:14px; color:#666; line-height:1.6; }
         /* HOW IT WORKS */
-        .lp-how { padding:100px 48px; background:#F5FBF9; }
+        .lp-how { padding:100px 48px; background:#F5FBF9; overflow:visible; }
         .lp-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; margin-top:56px; }
         .lp-step { text-align:center; position:relative; }
         .lp-step:not(:last-child)::after {
@@ -213,8 +212,72 @@
         .lp-footer-links a { font-size:13px; color:#888; text-decoration:none; transition:color 0.2s; }
         .lp-footer-links a:hover { color:#3AB0A8; }
 
+        /* PERS CHARACTERS */
+        .lp-pers-float {
+            position:absolute; pointer-events:none; z-index:2;
+            filter:drop-shadow(0 8px 24px rgba(0,0,0,0.12));
+        }
+        .lp-pers-float img { display:block; }
+        @keyframes persFloat1 { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-18px) rotate(4deg)} }
+        @keyframes persFloat2 { 0%,100%{transform:translateY(0) rotate(3deg)} 50%{transform:translateY(-14px) rotate(-3deg)} }
+        @keyframes persFloat3 { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-20px) rotate(2deg)} }
+        @keyframes persFloat4 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(1.05)} }
+        @keyframes persBounce { 0%,100%{transform:translateY(0) rotate(5deg)} 40%{transform:translateY(-22px) rotate(-5deg)} 70%{transform:translateY(-8px) rotate(3deg)} }
+
+        .pers-hero-left {
+            bottom:-20px; left:20px; width:110px;
+            animation:persFloat1 4s ease-in-out infinite;
+        }
+        .pers-hero-right {
+            top:60px; right:-10px; width:90px;
+            animation:persFloat2 5s ease-in-out infinite 0.5s;
+        }
+        .pers-features-left {
+            bottom:-30px; left:-20px; width:100px;
+            animation:persFloat3 4.5s ease-in-out infinite 1s;
+        }
+        .pers-features-right {
+            top:-20px; right:10px; width:85px;
+            animation:persBounce 5s ease-in-out infinite 0.3s;
+        }
+        .pers-how-left {
+            top:40px; left:0; width:95px;
+            animation:persFloat2 4s ease-in-out infinite 0.8s;
+        }
+        .pers-ai-corner {
+            bottom:-10px; right:20px; width:105px;
+            animation:persFloat1 5s ease-in-out infinite 0.2s;
+        }
+        .pers-cta-left {
+            bottom:0; left:40px; width:120px;
+            animation:persBounce 4.5s ease-in-out infinite;
+        }
+        .pers-cta-right {
+            bottom:0; right:40px; width:100px;
+            animation:persFloat3 4s ease-in-out infinite 1.2s;
+        }
+
+        /* speech bubble */
+        .pers-bubble {
+            position:absolute; background:white; border-radius:14px;
+            padding:8px 12px; font-size:12px; font-weight:600; color:#1a1a1a;
+            box-shadow:0 4px 16px rgba(0,0,0,0.1); white-space:nowrap;
+            border:1.5px solid rgba(58,176,168,0.2);
+            animation:bubblePop 0.4s ease-out both;
+        }
+        .pers-bubble::after {
+            content:''; position:absolute; bottom:-7px; left:16px;
+            width:12px; height:12px; background:white;
+            border-right:1.5px solid rgba(58,176,168,0.2);
+            border-bottom:1.5px solid rgba(58,176,168,0.2);
+            transform:rotate(45deg);
+        }
+        @keyframes bubblePop { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+
         /* MOBILE */
         @media (max-width:768px) {
+            /* Абсолютные персонажи скрываем на мобиле */
+            .lp-pers-float { display:none; }
             .lp-nav { padding:0 20px; }
             .lp-nav-link { display:none; }
             .lp-hero { padding:90px 20px 60px; flex-direction:column; gap:40px; min-height:auto; }
@@ -261,6 +324,15 @@
 
 <!-- HERO -->
 <section class="lp-hero">
+    <!-- Декоративный персонаж справа вверху (внутри hero, не обрезается) -->
+    <div style="position:absolute;top:80px;right:16px;z-index:3;animation:persFloat2 5s ease-in-out infinite 0.5s;pointer-events:none;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.1));">
+        <img src="pers/pers.png" alt="" width="80">
+    </div>
+    <!-- Декоративный персонаж снизу слева -->
+    <div style="position:absolute;bottom:16px;left:16px;z-index:3;animation:persFloat1 4s ease-in-out infinite;pointer-events:none;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.1));">
+        <div style="background:white;border-radius:14px;padding:7px 11px;font-size:12px;font-weight:700;color:#1a1a1a;box-shadow:0 4px 14px rgba(0,0,0,0.1);border:1.5px solid rgba(58,176,168,0.2);margin-bottom:6px;margin-left:6px;white-space:nowrap;">Привет! 👋</div>
+        <img src="pers/happy.png" alt="" width="100">
+    </div>
     <div class="lp-hero-left">
         <div class="lp-hero-badge">
             <i class="fas fa-bolt"></i>
@@ -292,6 +364,13 @@
             <div class="lp-stat">
                 <span class="lp-stat-num">99%</span>
                 <span class="lp-stat-label">Довольных команд</span>
+            </div>
+        </div>
+        <!-- Персонаж под статистикой — всегда виден -->
+        <div style="display:flex;align-items:flex-end;gap:12px;margin-top:28px;">
+            <img src="pers/happy.png" alt="" width="72" style="animation:persFloat1 4s ease-in-out infinite;filter:drop-shadow(0 6px 14px rgba(0,0,0,0.1));flex-shrink:0;">
+            <div style="background:rgba(58,176,168,0.08);border:1.5px solid rgba(58,176,168,0.2);border-radius:14px;padding:10px 14px;font-size:13px;color:#2A9D95;font-weight:600;line-height:1.4;">
+                Уже тысячи команд<br>доверяют Nikomi 🚀
             </div>
         </div>
     </div>
@@ -343,7 +422,7 @@
 
 <!-- FEATURES -->
 <section class="lp-features" id="features">
-    <div style="max-width:1100px;margin:0 auto;">
+    <div style="max-width:1100px;margin:0 auto;position:relative;">
         <div class="lp-section-label"><i class="fas fa-star"></i> Возможности</div>
         <h2 class="lp-section-title">Всё что нужно для работы команды</h2>
         <p class="lp-section-sub">Nikomi объединяет управление задачами, командную работу и AI-инструменты в одном удобном приложении.</p>
@@ -373,10 +452,12 @@
                 <div class="lp-feat-title">Аналитика</div>
                 <div class="lp-feat-desc">Красивые графики прогресса проектов, статистика по задачам и приоритетам. Понимай где узкие места.</div>
             </div>
-            <div class="lp-feat-card">
-                <div class="lp-feat-icon" style="background:rgba(229,115,115,0.12);color:#E57373"><i class="fas fa-bell"></i></div>
-                <div class="lp-feat-title">Умные уведомления</div>
-                <div class="lp-feat-desc">Персонаж Nikomi предупреждает о приближающихся дедлайнах и просроченных задачах. Не забудешь ничего важного.</div>
+            <div class="lp-feat-card" style="background:linear-gradient(135deg,rgba(58,176,168,0.06),rgba(76,175,80,0.04));border-color:rgba(58,176,168,0.25);display:flex;flex-direction:row;align-items:center;gap:16px;">
+                <img src="pers/shok.png" alt="" width="70" style="flex-shrink:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.1));animation:persFloat3 4s ease-in-out infinite;">
+                <div>
+                    <div class="lp-feat-title">Умные уведомления</div>
+                    <div class="lp-feat-desc">Персонаж Nikomi предупреждает о приближающихся дедлайнах. Не забудешь ничего важного!</div>
+                </div>
             </div>
         </div>
     </div>
@@ -384,7 +465,7 @@
 
 <!-- HOW IT WORKS -->
 <section class="lp-how" id="how">
-    <div style="max-width:1100px;margin:0 auto;text-align:center;">
+    <div style="max-width:1100px;margin:0 auto;text-align:center;position:relative;">
         <div class="lp-section-label"><i class="fas fa-map"></i> Как работает</div>
         <h2 class="lp-section-title">Начни за 3 минуты</h2>
         <p class="lp-section-sub" style="margin:0 auto 0;text-align:center;">Никакой сложной настройки — просто зарегистрируйся и начни работать</p>
@@ -408,6 +489,25 @@
                 <div class="lp-step-num">4</div>
                 <div class="lp-step-title">Работай и следи</div>
                 <div class="lp-step-desc">Перетаскивай задачи, смотри аналитику, не пропускай дедлайны</div>
+            </div>
+        </div>
+        <!-- Персонажи под шагами -->
+        <div style="display:flex;justify-content:center;align-items:flex-end;gap:24px;margin-top:48px;flex-wrap:wrap;">
+            <div style="text-align:center;animation:persFloat1 4s ease-in-out infinite;">
+                <div style="background:white;border-radius:12px;padding:8px 12px;font-size:12px;font-weight:600;color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:8px;display:inline-block;">Зарегистрировалась! 🎉</div>
+                <br><img src="pers/happy.png" alt="" width="85" style="filter:drop-shadow(0 6px 14px rgba(0,0,0,0.1));">
+            </div>
+            <div style="text-align:center;animation:persFloat2 5s ease-in-out infinite 0.7s;">
+                <div style="background:white;border-radius:12px;padding:8px 12px;font-size:12px;font-weight:600;color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:8px;display:inline-block;">Дедлайн горит! 😤</div>
+                <br><img src="pers/angry.png" alt="" width="85" style="filter:drop-shadow(0 6px 14px rgba(0,0,0,0.1));">
+            </div>
+            <div style="text-align:center;animation:persBounce 4.5s ease-in-out infinite 1.2s;">
+                <div style="background:white;border-radius:12px;padding:8px 12px;font-size:12px;font-weight:600;color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:8px;display:inline-block;">Задача выполнена! ⭐</div>
+                <br><img src="pers/happy.png" alt="" width="85" style="filter:drop-shadow(0 6px 14px rgba(0,0,0,0.1));">
+            </div>
+            <div style="text-align:center;animation:persFloat3 4s ease-in-out infinite 0.3s;">
+                <div style="background:white;border-radius:12px;padding:8px 12px;font-size:12px;font-weight:600;color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,0.08);margin-bottom:8px;display:inline-block;">Что это?! 😱</div>
+                <br><img src="pers/mshok.png" alt="" width="85" style="filter:drop-shadow(0 6px 14px rgba(0,0,0,0.1));">
             </div>
         </div>
     </div>
@@ -472,8 +572,9 @@
                     <span class="lp-ai-task-text">SEO оптимизация</span>
                     <span class="lp-ai-task-badge" style="background:rgba(76,175,80,0.2);color:#4CAF50">Низкий</span>
                 </div>
-                <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);font-size:12px;color:rgba(255,255,255,0.4);text-align:center;">
-                    5 задач сгенерировано за 2 секунды
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;">
+                    <img src="pers/shok.png" alt="" width="52" style="filter:drop-shadow(0 4px 10px rgba(0,0,0,0.2));animation:persFloat1 4s ease-in-out infinite;flex-shrink:0;">
+                    <span style="font-size:12px;color:rgba(255,255,255,0.5);">5 задач сгенерировано за 2 секунды ✨</span>
                 </div>
             </div>
         </div>
@@ -482,9 +583,18 @@
 
 <!-- CTA -->
 <section class="lp-cta">
-    <div style="max-width:600px;margin:0 auto;">
+    <div style="max-width:600px;margin:0 auto;position:relative;">
         <h2 class="lp-cta-title">Готов начать?</h2>
         <p class="lp-cta-sub">Зарегистрируйся бесплатно и начни управлять проектами уже сегодня</p>
+        <!-- Персонажи в CTA -->
+        <div style="display:flex;justify-content:center;align-items:flex-end;gap:20px;margin-bottom:28px;flex-wrap:wrap;">
+            <img src="pers/happy.png" alt="" width="90" style="animation:persBounce 4s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,0.1));">
+            <div style="background:rgba(58,176,168,0.1);border:1.5px solid rgba(58,176,168,0.25);border-radius:16px;padding:14px 20px;text-align:left;max-width:220px;">
+                <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:4px;">Присоединяйся к нам!</div>
+                <div style="font-size:12px;color:#666;line-height:1.4;">Уже 10 000+ команд управляют проектами в Nikomi</div>
+            </div>
+            <img src="pers/pers.png" alt="" width="80" style="animation:persFloat2 5s ease-in-out infinite 0.8s;filter:drop-shadow(0 6px 16px rgba(0,0,0,0.1));">
+        </div>
         <div class="lp-cta-btns">
             <a href="simple-registration.html" class="lp-btn-primary" style="font-size:16px;padding:16px 32px;">
                 <i class="fas fa-rocket"></i> Создать аккаунт бесплатно
