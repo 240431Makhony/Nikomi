@@ -736,12 +736,27 @@ function canSendTaskToReview(task) {
 }
 
 function canChangeTaskStatus(task, status) {
+    const myId = state.user?.id;
+    const myEmail = state.user?.email;
     const project = getTaskProject(task);
-    if (!project) return task?.owner_id === state.user?.id;
-    if (isProjectOwnerForTask(task)) return true;
+
+    // Владелец задачи — полные права всегда
+    if (task?.owner_id === myId) return true;
+
+    // Владелец проекта — полные права
+    if (project?.owner_id === myId) return true;
+
+    // Нет проекта — только владелец задачи (уже проверили выше)
+    if (!project) return false;
+
+    // Участник: может отправить на проверку
     if (status === 'review') return canSendTaskToReview(task);
+
+    // Участник: не может сам ставить "Сделано"
     if (status === 'done') return false;
-    return isAssignedToMe(task);
+
+    // Участник назначенный на задачу — может менять todo/inprogress
+    return isAssignedToMe(task) || task?.assignee === myEmail;
 }
 
 function canSeeReviewNote(task) {
