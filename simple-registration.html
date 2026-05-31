@@ -74,6 +74,7 @@
 
     <script type="module">
         import { signUp, signInWithGoogle, getCurrentUser } from './js/supabase.js';
+        import { validateEmailAddress } from './js/email-validation.js';
 
         getCurrentUser().then(user => {
             if (user) window.location.href = 'main.html';
@@ -96,11 +97,21 @@
             if (!email) { showError('Введите email'); return; }
             if (password.length < 6) { showError('Пароль минимум 6 символов'); return; }
 
-            btn.textContent = 'Создаём аккаунт...';
+            btn.textContent = 'Проверяем email...';
             btn.disabled = true;
 
+            const emailCheck = await validateEmailAddress(email);
+            if (!emailCheck.valid) {
+                showError(emailCheck.message);
+                btn.textContent = 'Зарегистрироваться';
+                btn.disabled = false;
+                return;
+            }
+
+            btn.textContent = 'Создаём аккаунт...';
+
             // Роль больше не выбирается — все пользователи равны
-            const result = await signUp(email, password, name, 'user');
+            const result = await signUp(emailCheck.email, password, name, 'user');
 
             if (result.success) {
                 window.location.href = 'main.html';

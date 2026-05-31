@@ -42,6 +42,20 @@ export async function signIn(email, password) {
     return { success: true, user: data.user, session: data.session };
 }
 
+export async function sendPasswordResetEmail(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password.html'
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
+export async function updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user };
+}
+
 export async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

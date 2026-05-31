@@ -10,6 +10,7 @@ import {
     getTaskAttachments, addTaskLink, uploadTaskFile, deleteTaskAttachment,
     getTaskComments, addTaskComment, deleteTaskComment
 } from './js/supabase.js';
+import { validateEmailAddress } from './js/email-validation.js';
 
 let state = {
     user: null,
@@ -588,7 +589,15 @@ async function addMemberToProject() {
     statusEl.style.color = 'var(--text-secondary)';
     statusEl.style.background = 'rgba(58,176,168,0.1)';
 
-    const check = await checkUserByEmail(email);
+    const emailCheck = await validateEmailAddress(email);
+    if (!emailCheck.valid) {
+        statusEl.textContent = emailCheck.message;
+        statusEl.style.color = '#c62828';
+        statusEl.style.background = 'rgba(229,115,115,0.1)';
+        return;
+    }
+
+    const check = await checkUserByEmail(emailCheck.email);
 
     if (!check.exists) {
         statusEl.textContent = '❌ Пользователь с таким email не найден в Nikomi';
@@ -600,7 +609,7 @@ async function addMemberToProject() {
     const p = state.projects.find(x => x.id === currentProjectId);
     if (!p) return;
     if (!p.members) p.members = [];
-    if (p.members.includes(email)) {
+    if (p.members.includes(emailCheck.email)) {
         statusEl.textContent = '⚠️ Этот участник уже добавлен';
         statusEl.style.color = '#b8860b';
         statusEl.style.background = 'rgba(248,201,93,0.15)';
@@ -608,7 +617,7 @@ async function addMemberToProject() {
     }
 
     // Добавляем и сразу сохраняем в БД
-    p.members.push(email);
+    p.members.push(emailCheck.email);
     const result = await sbUpdateProject(p.id, { members: p.members });
 
     if (!result.success) {
@@ -621,10 +630,10 @@ async function addMemberToProject() {
 
     renderEditMembersList(p.members);
     document.getElementById('editMemberEmail').value = '';
-    statusEl.textContent = `✅ ${check.user.name || email} добавлен в проект!`;
+    statusEl.textContent = `✅ ${check.user.name || emailCheck.email} добавлен в проект!`;
     statusEl.style.color = '#2e7d32';
     statusEl.style.background = 'rgba(76,175,80,0.1)';
-    showPersNotif('success', `${check.user.name || email} добавлен в проект! 👥`);
+    showPersNotif('success', `${check.user.name || emailCheck.email} добавлен в проект! 👥`);
     setTimeout(() => statusEl.style.display = 'none', 3000);
 }
 
@@ -2614,26 +2623,32 @@ async function sendInvite() {
 
     // Проверяем существование пользователя
     showInviteStatus('Проверяем...', 'info');
-    const check = await checkUserByEmail(email);
+    const emailCheck = await validateEmailAddress(email);
+    if (!emailCheck.valid) {
+        showInviteStatus(emailCheck.message, 'error');
+        return;
+    }
+
+    const check = await checkUserByEmail(emailCheck.email);
 
     if (!check.exists) {
         showInviteStatus('❌ Пользователь с таким email не найден', 'error');
         return;
     }
 
-    showInviteStatus(`✅ Найден: ${check.user.name || email}`, 'success');
+    showInviteStatus(`✅ Найден: ${check.user.name || emailCheck.email}`, 'success');
 
     const project = state.projects.find(p => p.id === projectId);
     if (!project) {
         showInviteStatus('❌ Проект не найден', 'error');
         return;
     }
-    if (project.members?.includes(email)) {
+    if (project.members?.includes(emailCheck.email)) {
         showInviteStatus('⚠️ Этот участник уже добавлен', 'info');
         return;
     }
 
-    const members = [...(project.members || []), email];
+    const members = [...(project.members || []), emailCheck.email];
     const result = await sbUpdateProject(projectId, { members });
     if (!result.success) {
         showInviteStatus('❌ Ошибка: ' + result.error, 'error');
